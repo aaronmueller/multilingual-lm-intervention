@@ -321,24 +321,32 @@ class Model():
                     token_log_probs.append(log_probs[i][next_token_id].item())
             else:
                 combined = context + candidate
+                #print('combined text: ',combined)
                 # Exclude last token position when predicting next token
                 batch = torch.tensor(combined[:-1]).unsqueeze(dim=0).to(self.device)
                 # Shape (batch_size, seq_len, vocab_size)
                 logits = self.model(batch)[0]
                 # Shape (seq_len, vocab_size)
                 log_probs = F.log_softmax(logits[-1, :, :], dim=-1)
+                #print('log_probs shape: ',log_probs.shape)
                 context_end_pos = len(context) - 1
                 continuation_end_pos = context_end_pos + len(candidate)
+                #print('context_end_pos: ', context_end_pos)
+                #print('continuation_end_pos: ', continuation_end_pos)
                 # TODO: Vectorize this
                 # Up to but not including last token position
                 for i in range(context_end_pos, continuation_end_pos):
                     next_token_id = combined[i+1]
-                    next_token_log_prob = log_probs[i][next_token_id].item()
+                    #print('nect_token_id: ', next_token_id)
+                    next_token_log_prob = log_probs[0][i][next_token_id].item()
                     token_log_probs.append(next_token_log_prob)
+                    #print('next_token_log_prob: ', next_token_log_prob)
             mean_token_log_prob = statistics.mean(token_log_probs)
             mean_token_prob = math.exp(mean_token_log_prob)
             mean_probs.append(mean_token_prob)
-        return mean_probs
+            #print('return value: ', mean_probs)
+        #print('final return: ', mean_probs)
+        return [mean_probs]
 
     def neuron_intervention(self,
                             context,
@@ -557,10 +565,10 @@ class Model():
                 raise ValueError(f"Invalid intervention_type: {intervention_type}")
 
             # Probabilities without intervention (Base case)
-            candidate1_base_prob, candidate2_base_prob = self.get_probabilities_for_examples(
+            candidate1_base_prob, candidate2_base_prob = self.get_probabilities_for_examples_multitoken(
                 intervention.base_strings_tok[0].unsqueeze(0),
                 intervention.candidates_tok)[0]
-            candidate1_alt_prob, candidate2_alt_prob = self.get_probabilities_for_examples(
+            candidate1_alt_prob, candidate2_alt_prob = self.get_probabilities_for_examples_multitoken(
                 intervention.base_strings_tok[1].unsqueeze(0),
                 intervention.candidates_tok)[0]
             # Now intervening on potentially biased example
