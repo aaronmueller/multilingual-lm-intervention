@@ -198,15 +198,18 @@ class Model():
     def mlm_inputs(self, context, candidate):
         input_tokens = []
         for i in range(len(candidate)):
-            combined = context + candidate[:i] + [self.st_ids[0]]
+            #print('context: ',type(context), context)
+            #print('candidate: ', type(candidate), candidate)
+            combined = context[0] + candidate[:i] + [self.st_ids[0]]
             if self.masking_approach in [2, 5]:
-                combined = combined + candidate[i+1:]
+                combined = combined[0] + candidate[i+1:]
             elif self.masking_approach in [3, 6]:
-                combined = combined + [self.st_ids[0]] * len(candidate[i+1:])
+                combined = combined[0] + [self.st_ids[0]] * len(candidate[i+1:])
             if self.masking_approach > 3:
-                combined = [self.st_ids[1]] + combined + [self.st_ids[2]]
+                combined = [self.st_ids[1]] + combined[0] + [self.st_ids[2]]
             pred_idx = combined.index(self.st_ids[0])
             input_tokens.append((combined, pred_idx))
+        #print(input_tokens)
         return input_tokens
     
     def xlnet_forward(self, batch, clen):
@@ -223,7 +226,7 @@ class Model():
         target_mapping[:, :, -clen:] = torch.eye(clen)
         return self.model(batch,
                         perm_mask=perm_mask,
-                        target_mapping=target_mapping)
+                       target_mapping=target_mapping)
 
     def get_representations(self, context, position):
         # Hook for saving the representation
@@ -308,6 +311,8 @@ class Model():
                 mlm_inputs = self.mlm_inputs(context, candidate)
                 for i, c in enumerate(candidate):
                     combined, pred_idx = mlm_inputs[i]
+                    #print('combined: ', combined)
+                    #print('pred_idx: ', pred_idx)
                     batch = torch.tensor(combined).unsqueeze(dim=0).to(self.device)
                     logits = self.model(batch)[0]
                     log_probs = F.log_softmax(logits[-1, :, :], dim=-1)
@@ -320,27 +325,27 @@ class Model():
                 for i, next_token_id in enumerate(candidate):
                     token_log_probs.append(log_probs[i][next_token_id].item())
             else:
-                combined = context + candidate
-                #print('combined text: ',combined)
+                combined = context[0] + candidate
+                print('combined text: ',combined)
                 # Exclude last token position when predicting next token
                 batch = torch.tensor(combined[:-1]).unsqueeze(dim=0).to(self.device)
                 # Shape (batch_size, seq_len, vocab_size)
                 logits = self.model(batch)[0]
                 # Shape (seq_len, vocab_size)
                 log_probs = F.log_softmax(logits[-1, :, :], dim=-1)
-                #print('log_probs shape: ',log_probs.shape)
+                print('log_probs shape: ',log_probs.shape)
                 context_end_pos = len(context) - 1
                 continuation_end_pos = context_end_pos + len(candidate)
-                #print('context_end_pos: ', context_end_pos)
-                #print('continuation_end_pos: ', continuation_end_pos)
+                print('context_end_pos: ', context_end_pos)
+                print('continuation_end_pos: ', continuation_end_pos)
                 # TODO: Vectorize this
                 # Up to but not including last token position
                 for i in range(context_end_pos, continuation_end_pos):
                     next_token_id = combined[i+1]
-                    #print('nect_token_id: ', next_token_id)
-                    next_token_log_prob = log_probs[0][i][next_token_id].item()
+                    print('nect_token_id: ', next_token_id)
+                    next_token_log_prob = log_probs[i][next_token_id].item()
                     token_log_probs.append(next_token_log_prob)
-                    #print('next_token_log_prob: ', next_token_log_prob)
+                    print('next_token_log_prob: ', next_token_log_prob)
             mean_token_log_prob = statistics.mean(token_log_probs)
             mean_token_prob = math.exp(mean_token_log_prob)
             mean_probs.append(mean_token_prob)
@@ -924,9 +929,10 @@ class Model():
 
 def main():
     DEVICE = 'cpu'
-    tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
-    model = Model(device=DEVICE)
-
+    tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-cased')
+    model = Model(gpt2_version = 'bert-base-multilingual-cased', device=DEVICE)
+    #tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+    #model = Model(device=DEVICE)
     base_sentence = "The {}"
     base_word = 'key'
     intervention = Intervention(
