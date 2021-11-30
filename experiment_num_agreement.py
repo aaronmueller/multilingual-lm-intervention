@@ -1,4 +1,4 @@
-
+import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
 import torch
 # import torch.nn as nn
@@ -200,14 +200,15 @@ class Model():
         for i in range(len(candidate)):
             #print('context: ',type(context), context)
             #print('candidate: ', type(candidate), candidate)
-            combined = context[0] + candidate[:i] + [self.st_ids[0]]
+            combined = [c + candidate[:i] + [self.st_ids[0]] for c in context]
             if self.masking_approach in [2, 5]:
-                combined = combined[0] + candidate[i+1:]
+                combined = combined + candidate[i+1:]
             elif self.masking_approach in [3, 6]:
-                combined = combined[0] + [self.st_ids[0]] * len(candidate[i+1:])
+                combined = combined + [self.st_ids[0]] * len(candidate[i+1:])
             if self.masking_approach > 3:
-                combined = [self.st_ids[1]] + combined[0] + [self.st_ids[2]]
-            pred_idx = combined.index(self.st_ids[0])
+                combined = [self.st_ids[1]] + combined + [self.st_ids[2]]
+            
+            pred_idx = combined[0].index(self.st_ids[0])
             input_tokens.append((combined, pred_idx))
         #print(input_tokens)
         return input_tokens
@@ -302,21 +303,20 @@ class Model():
 
         Returns: list containing probability for each candidate
         """
-        # TODO: Combine into single batch
-        token_log_probs = []
+       # TODO: Combine into single batch
+        #token_log_probs = []
         mean_probs = []
         context = context.tolist()
         for candidate in candidates:
+            token_log_probs = [] 
             if self.is_bert or self.is_xlmr:
                 mlm_inputs = self.mlm_inputs(context, candidate)
                 for i, c in enumerate(candidate):
                     combined, pred_idx = mlm_inputs[i]
-                    #print('combined: ', combined)
-                    #print('pred_idx: ', pred_idx)
-                    batch = torch.tensor(combined).unsqueeze(dim=0).to(self.device)
+                    batch = torch.tensor(combined).to(self.device)
                     logits = self.model(batch)[0]
-                    log_probs = F.log_softmax(logits[-1, :, :], dim=-1)
-                    token_log_probs.append(log_probs[pred_idx][c].item())
+                    log_probs = F.log_softmax(logits, dim=-1)
+                    token_log_probs.append([log_prob[pred_idx][c].item() for log_prob in log_probs])
             elif self.is_xlnet:
                 combined = context + candidate
                 batch = torch.tensor(combined).unsqueeze(dim=0).to(self.device)
@@ -325,33 +325,27 @@ class Model():
                 for i, next_token_id in enumerate(candidate):
                     token_log_probs.append(log_probs[i][next_token_id].item())
             else:
-                combined = context[0] + candidate
-                #print('combined text: ',combined)
+                combined = [c + candidate for c in context]
                 # Exclude last token position when predicting next token
-                batch = torch.tensor(combined[:-1]).unsqueeze(dim=0).to(self.device)
+                batch = torch.tensor([c[:-1] for c in combined]).to(self.device)
                 # Shape (batch_size, seq_len, vocab_size)
                 logits = self.model(batch)[0]
                 # Shape (seq_len, vocab_size)
-                log_probs = F.log_softmax(logits[-1, :, :], dim=-1)
-                #print('log_probs shape: ',log_probs.shape)
-                context_end_pos = len(context) - 1
+                log_probs = F.log_softmax(logits, dim=-1)
+                context_end_pos = len(context[0]) - 1
                 continuation_end_pos = context_end_pos + len(candidate)
-                #print('context_end_pos: ', context_end_pos)
-                #print('continuation_end_pos: ', continuation_end_pos)
                 # TODO: Vectorize this
                 # Up to but not including last token position
                 for i in range(context_end_pos, continuation_end_pos):
-                    next_token_id = combined[i+1]
-                    #print('nect_token_id: ', next_token_id)
-                    next_token_log_prob = log_probs[i][next_token_id].item()
+                    next_token_id = combined[0][i+1]
+                    next_token_log_prob = [log_prob[i][next_token_id].item() for log_prob in log_probs]
                     token_log_probs.append(next_token_log_prob)
-                    #print('next_token_log_prob: ', next_token_log_prob)
-            mean_token_log_prob = statistics.mean(token_log_probs)
-            mean_token_prob = math.exp(mean_token_log_prob)
+            mean_token_log_prob = np.mean(token_log_probs, axis = 0)
+            mean_token_prob = np.exp(mean_token_log_prob)
             mean_probs.append(mean_token_prob)
-            #print('return value: ', mean_probs)
         #print('final return: ', mean_probs)
-        return [mean_probs]
+        mid = np.array([mean_probs]).transpose()
+        return mid.reshape(len(mid),len(mid[0]))
 
     def neuron_intervention(self,
                             context,
@@ -400,7 +394,8 @@ class Model():
 
         # Set up the context as batch
         batch_size = len(neurons)
-        context = context.unsqueeze(0).repeat(batch_size, 1)
+        context = context.repeat(batch_size,1)
+        #context = context.unsqueeze(0).repeat(batch_size, 1)
         handle_list = []
         for layer in set(layers):
             neuron_loc = np.where(np.array(layers) == layer)[0]
@@ -425,7 +420,7 @@ class Model():
                             neurons=n_list,
                             intervention=intervention_rep,
                             intervention_type=intervention_type)))
-        new_probabilities = self.get_probabilities_for_examples(
+        new_probabilities = self.get_probabilities_for_examples_multitoken(
             context,
             outputs)
         for hndle in handle_list:
@@ -595,7 +590,9 @@ class Model():
                         position=intervention.position,
                         intervention_type=replace_or_diff,
                         alpha=alpha)
+                    #print('return :', probs)
                     for neuron, (p1, p2) in zip(neurons, probs):
+                        #print(p1,p2)
                         candidate1_probs[layer + 1][neuron] = p1
                         candidate2_probs[layer + 1][neuron] = p2
                         # Now intervening on potentially biased example
