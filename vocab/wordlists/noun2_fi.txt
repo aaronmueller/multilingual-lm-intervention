@@ -1,0 +1,10 @@
+vartija vartijat
+kokki kokit
+arkkitehti arkkitehdit
+luistelija luistelijat 
+tanssija tanssijat
+ministeri ministerit
+kuljettaja kuljettajat
+avustaja avustajat
+johtaja johtajat
+vanhempi vanhemmat

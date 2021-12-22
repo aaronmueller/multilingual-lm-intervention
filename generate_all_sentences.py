@@ -27,14 +27,20 @@ def load_nouns(language):
     nouns_list = []
     with open(os.path.join(WORDS_PATH, f"noun_{language}.txt"), 'r') as nouns:
         for line in nouns:
-            nouns_list.append(line.strip().split("\t"))
+            if language == "fi":
+                nouns_list.append(line.strip().split())
+            else:
+                nouns_list.append(line.strip().split("\t"))
     return nouns_list
 
 def load_nouns2(language):
     nouns2_list = []
     with open(os.path.join(WORDS_PATH, f"noun2_{language}.txt"), 'r') as nouns2:
         for line in nouns2:
-            nouns2_list.append(line.strip().split("\t"))
+            if language == "fi":
+                nouns2_list.append(line.strip().split())
+            else:
+                nouns2_list.append(line.strip().split("\t"))
     return nouns2_list
 
 def load_verbs(language):
@@ -57,6 +63,20 @@ def load_prepositions(language):
         for line in preps:
             prep_list.append(line.strip())
     return prep_list
+
+def load_adv1(language):
+    adv1_list = []
+    with open(os.path.join(WORDS_PATH, f"adv1_{language}.txt"), 'r') as adv1s:
+        for line in adv1s:
+            adv1_list.append(line.strip())
+    return adv1_list
+
+def load_adv2(language):
+    adv2_list = []
+    with open(os.path.join(WORDS_PATH, f"adv2_{language}.txt"), 'r') as adv2s:
+        for line in adv2s:
+            adv2_list.append(line.strip())
+    return adv2_list
 
 
 if __name__ == "__main__":

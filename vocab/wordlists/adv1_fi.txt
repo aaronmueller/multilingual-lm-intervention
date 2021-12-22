@@ -1,0 +1,3 @@
+varovasti
+avoimesti
+nopeasti

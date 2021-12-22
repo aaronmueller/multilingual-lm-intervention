@@ -1,0 +1,11 @@
+P_kehuu kehuvat
+Al_soittaa soittavat
+P_kuvailee kuvailevat
+P_seuraa seuraavat
+I_vaikuttaa vaikuttavat
+P_suojelee suojaavat
+Ac_ilmoittaa ilmoittavat
+Ac_tapaa tapaavat
+E_pitää pitävät
+P_vihaa vihavat
+Ac_näkee näkevät

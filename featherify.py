@@ -15,6 +15,9 @@ dtypes = {
   'neuron': 'int32',
 }
 
+if not os.path.exists(PATH + "feathers/"):
+  os.mkdir(PATH + "feathers/")
+
 files = list(filter(lambda x: x.endswith('.csv'), os.listdir(PATH)))
 for f in tqdm(files):
   pd.read_csv(PATH + f, dtype=dtypes)\
