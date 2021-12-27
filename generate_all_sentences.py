@@ -64,6 +64,16 @@ def load_prepositions(language):
             prep_list.append(line.strip())
     return prep_list
 
+def load_preposition_nouns(language):
+    prepnoun_list = []
+    with open(os.path.join(WORDS_PATH, f"prepnoun_{language}.txt"), 'r') as prepnouns:
+        for line in prepnouns:
+            if language == "fi":
+                prepnoun_list.append(line.strip().split())
+            else:
+                prepnoun_list.append(line.strip().split("\t"))
+    return prepnoun_list
+
 def load_adv1(language):
     adv1_list = []
     with open(os.path.join(WORDS_PATH, f"adv1_{language}.txt"), 'r') as adv1s:

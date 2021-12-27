@@ -20,7 +20,8 @@ from transformers import (
     TransfoXLTokenizer,
     XLNetTokenizer,
     BertForMaskedLM, BertTokenizer,
-    XLMRobertaForMaskedLM, XLMRobertaTokenizer
+    XLMRobertaForMaskedLM, XLMRobertaTokenizer,
+    CamembertForMaskedLM, CamembertTokenizer
 )
 from transformers_modified.modeling_transfo_xl import TransfoXLLMHeadModel
 from transformers_modified.modeling_xlnet import XLNetLMHeadModel
@@ -93,13 +94,18 @@ class Intervention():
             # tokens = self.enc.tokenize('. ' + c)[1:] 
             tokens = self.enc.tokenize('a ' + c,
                 add_space_before_punct_symbol=True)[1:]
+            assert(len(tokens) == 1)
             self.candidates.append(tokens)
 
+        self.substitutes = []
         for s in substitutes:
             # 'a ' added to input so that tokenizer understand that first word
             # follows a space.
             tokens = self.enc.tokenize('a ' + s,
                 add_space_before_punct_symbol=True)[1:]
+            self.substitutes.append(tokens)
+        assert(len(self.substitutes[0]) > 1 and len(self.substitutes[0]) == len(self.substitutes[1]))
+        # self.position += len(self.substitutes[0]) - 1
 
         self.candidates_tok = [self.enc.convert_tokens_to_ids(tokens)
                                for tokens in self.candidates]
@@ -166,15 +172,18 @@ def construct_interventions(tokenizer, DEVICE, attractor, seed):
         else:
             for ns, np in vocab.get_nouns():
                 for v_singular, v_plural in vocab.get_verbs():
-                    all_word_count += 1
-                    intervention_name = '_'.join([temp, ns, v_singular])
-                    interventions[intervention_name] = Intervention(
-                        tokenizer,
-                        temp,
-                        [ns, np],
-                        [v_singular + " it.", v_plural + " it."],
-                        device=DEVICE)
-                    used_word_count += 1
+                    try:
+                        all_word_count += 1
+                        intervention_name = '_'.join([temp, ns, v_singular])
+                        interventions[intervention_name] = Intervention(
+                            tokenizer,
+                            temp,
+                            [ns, np],
+                            [v_singular, v_plural],
+                            device=DEVICE)
+                        used_word_count += 1
+                    except AssertionError as e:
+                        pass
     # print(f"\t Only used {used_word_count}/{all_word_count} nouns due to tokenizer")
     #if examples > 0 and len(interventions) >= examples:     # randomly sample input sentences
     #    random.seed(seed)
@@ -206,14 +215,14 @@ def syneval(model_type, device, random_weights, attractor, seed):
         if len(intervention.candidates[0]) != len(intervention.candidates[1]):
         # if len(intervention.candidates[0]) != 1 or len(intervention.candidates[1]) != 1:
             continue
-        candidate1_base_prob, candidate2_base_prob = model.get_probabilities_for_examples_multitoken(
-        #candidate1_base_prob, candidate2_base_prob = model.get_probabilities_for_examples(
+        # candidate1_base_prob, candidate2_base_prob = model.get_probabilities_for_examples_multitoken(
+        candidate1_base_prob, candidate2_base_prob = model.get_probabilities_for_examples(
                 intervention.base_string_tok.unsqueeze(0),
-                intervention.candidates_tok)#[0]
-        candidate1_alt_prob, candidate2_alt_prob = model.get_probabilities_for_examples_multitoken(
-        #candidate1_alt_prob, candidate2_alt_prob = model.get_probabilities_for_examples(
+                intervention.candidates_tok)[0]
+        # candidate1_alt_prob, candidate2_alt_prob = model.get_probabilities_for_examples_multitoken(
+        candidate1_alt_prob, candidate2_alt_prob = model.get_probabilities_for_examples(
             intervention.alt_string_tok.unsqueeze(0),
-            intervention.candidates_tok)#[0]
+            intervention.candidates_tok)[0]
         total += 1
         if candidate1_base_prob > candidate2_base_prob:
             n_correct_singular += 1

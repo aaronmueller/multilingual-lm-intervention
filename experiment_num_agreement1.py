@@ -69,18 +69,24 @@ class Intervention():
         # print(self.base_strings_tok)
         #self.base_strings_tok = torch.LongTensor(self.base_strings_tok)\
         #                             .to(device)
-        self.base_strings_tok = [
-            self.enc.encode(s, add_special_tokens=False, 
-            add_space_before_punct_symbol=True)
-            for s in self.base_strings
-        ]
-        self.base_strings_tok = torch.LongTensor(self.base_strings_tok).to(device)
+        #self.base_strings_tok = [
+        #    self.enc.encode(s, add_special_tokens=False, 
+        #    add_space_before_punct_symbol=True)
+        #    for s in self.base_strings
+        #]
+        self.base_string_tok = self.enc.encode(self.base_strings[0], add_special_tokens=False,
+                                               add_space_before_punct_symbol=True)
+        self.alt_string_tok = self.enc.encode(self.base_strings[1], add_special_tokens=False,
+                                              add_space_before_punct_symbol=True)
+        self.base_string_tok = torch.LongTensor(self.base_string_tok).to(device)
+        self.alt_string_tok = torch.LongTensor(self.alt_string_tok).to(device)
+        #self.base_strings_tok = torch.LongTensor(self.base_strings_tok).to(device)
         # Where to intervene
-        #self.position = base_string.split().index('{}')
+        # self.position = base_string.split().index('{}')
         if isinstance(tokenizer, XLNetTokenizer):
             diff = len(base_string.split()) - base_string.split().index('{}')
             self.position = len(self.base_strings_tok[0]) - diff
-            assert len(self.base_strings_tok[0]) == len(self.base_strings_tok[1])
+            # assert len(self.base_strings_tok[0]) == len(self.base_strings_tok[1])
         else:
             self.position = base_string.split().index('{}')
 
@@ -91,15 +97,19 @@ class Intervention():
             # tokens = self.enc.tokenize('. ' + c)[1:] 
             tokens = self.enc.tokenize('a ' + c,
                 add_space_before_punct_symbol=True)[1:]
-            assert(len(tokens) == 1)
+            # assert(len(tokens) == 1)
             self.candidates.append(tokens)
 
+        self.substitutes = []
         for s in substitutes:
             # 'a ' added to input so that tokenizer understand that first word
             # follows a space.
             tokens = self.enc.tokenize('a ' + s,
                 add_space_before_punct_symbol=True)[1:]
-            assert(len(tokens) == 1)
+            # assert(len(tokens) == 1)
+            self.substitutes.append(tokens)
+        assert(len(self.substitutes[0]) > 1 and len(self.substitutes[0]) == len(self.substitutes[1]))
+        self.position += len(self.substitutes[1]) - 1
 
         self.candidates_tok = [self.enc.convert_tokens_to_ids(tokens)
                                for tokens in self.candidates]
@@ -320,8 +330,8 @@ class Model():
                     batch = torch.tensor(combined).to(self.device)
                     logits = self.model(batch)[0]
                     log_probs = F.log_softmax(logits[-1, :, :], dim=-1)
-                    #token_log_probs.append(log_probs[pred_idx][c].item())
-                    token_log_probs.append([log_prob[pred_idx][c].item() for log_prob in log_probs])
+                    token_log_probs.append(log_probs[pred_idx][c].item())
+                    #token_log_probs.append([log_prob[pred_idx][c].item() for log_prob in log_probs])
             elif self.is_xlnet:
                 combined = context + candidate
                 batch = torch.tensor(combined).unsqueeze(dim=0).to(self.device)
@@ -353,7 +363,7 @@ class Model():
                     #print('next_token_log_prob: ', next_token_log_prob)
             #print('token_log_probs: ', token_log_probs)
             mean_token_log_prob = np.mean(token_log_probs, axis = 0)
-            print('mean_token_log_prob: ', mean_token_log_prob)
+            # print('mean_token_log_prob: ', mean_token_log_prob)
             mean_token_prob = np.exp(mean_token_log_prob)
             mean_probs.append(mean_token_prob)
             #print('return value: ', mean_probs)
@@ -572,18 +582,22 @@ class Model():
 
 
             base_representations = self.get_representations(
-                intervention.base_strings_tok[0],
+                #intervention.base_strings_tok[0],
+                intervention.base_string_tok,
                 intervention.position)
             complement_representations = self.get_representations(
-                intervention.base_strings_tok[1],
+                #intervention.base_strings_tok[1],
+                intervention.alt_string_tok,
                 intervention.position)
 
             if intervention_type == 'indirect':
-                context = intervention.base_strings_tok[0]
+                #context = intervention.base_strings_tok[0]
+                context = intervention.base_string_tok
                 rep = complement_representations
                 replace_or_diff = 'replace'
             elif intervention_type == 'direct':
-                context = intervention.base_strings_tok[1]
+                #context = intervention.base_strings_tok[1]
+                context = intervention.alt_string_tok
                 rep = base_representations 
                 replace_or_diff = 'replace'
             else:
@@ -591,11 +605,13 @@ class Model():
 
             # Probabilities without intervention (Base case)
             candidate1_base_prob, candidate2_base_prob = self.get_probabilities_for_examples_multitoken(
-                intervention.base_strings_tok[0].unsqueeze(0),
-                intervention.candidates_tok)[0]
+                #intervention.base_strings_tok[0].unsqueeze(0),
+                intervention.base_string_tok.unsqueeze(0),
+                intervention.candidates_tok)
             candidate1_alt_prob, candidate2_alt_prob = self.get_probabilities_for_examples_multitoken(
-                intervention.base_strings_tok[1].unsqueeze(0),
-                intervention.candidates_tok)[0]
+                #intervention.base_strings_tok[1].unsqueeze(0),
+                intervention.alt_string_tok.unsqueeze(0),
+                intervention.candidates_tok)
             # Now intervening on potentially biased example
             if intervention_loc == 'all':
               candidate1_probs = torch.zeros((self.num_layers + 1, self.num_neurons))
@@ -616,10 +632,10 @@ class Model():
                         intervention_type=replace_or_diff,
                         alpha=alpha)
                     print('return :', probs)
-                    for neuron, (p1, p2) in zip(neurons, probs):
-                        #print(p1,p2)
-                        candidate1_probs[layer + 1][neuron] = p1[0]
-                        candidate2_probs[layer + 1][neuron] = p2[0]
+                    for neuron, (p1, p2) in zip(neurons, probs.transpose()):
+                        # print(p1,p2)
+                        candidate1_probs[layer + 1][neuron] = p1 # p1[0]
+                        candidate2_probs[layer + 1][neuron] = p2 # p2[0]
                         # Now intervening on potentially biased example
             elif intervention_loc == 'layer':
               layers_to_search = (len(neurons_to_adj) + 1)*[layers_to_adj]

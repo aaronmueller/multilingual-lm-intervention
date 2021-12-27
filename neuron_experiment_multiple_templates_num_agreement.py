@@ -8,11 +8,12 @@ from utils_num_agreement import convert_results_to_pd
 from experiment_num_agreement import Intervention, Model
 from transformers import (
     GPT2Tokenizer, TransfoXLTokenizer, XLNetTokenizer, BertTokenizer,
-    XLMRobertaTokenizer
+    XLMRobertaTokenizer, CamembertTokenizer
 )
 from vocab_utils import get_nouns, get_nouns2, get_verbs, get_verbs2, get_prepositions, \
         get_preposition_nouns, get_adv1s, get_adv2s
-from generate_all_sentences import load_nouns, load_verbs, load_nouns2, load_verbs2, load_bigrams
+from generate_all_sentences import load_nouns, load_verbs, load_nouns2, load_verbs2, load_bigrams, \
+        load_adv1, load_adv2, load_prepositions, load_preposition_nouns
 import vocab_utils as vocab
 
 '''
@@ -25,35 +26,68 @@ def get_intervention_types():
 def construct_templates_fr(language):
     LANG_COMPLEMENTIZERS = {
         'fr': 'que',
-        'nl': 'die'
+        'nl': 'die',
+        # German inflects the complementizer for case and number
+        'de': {'M': 'den', 'N': 'das', 'F': 'die'},
+        # Finnish inflects the complementizer for case and number
+        'fi': {'P': 'jota', 'E': 'josta', 'I': 'johon',
+               'Al': 'jolle', 'Ac': 'jonka'}
+    }
+
+    LANG_CONJUNCTIONS = {
+        'fr': 'et',
+        'nl': 'en',
+        'de': 'und',
+        'fi': 'ja'
     }
 
     templates = []
-    if attractor in ['singular', 'plural']:
-        # TODO
-        pass
+    if attractor in ['prep_singular', 'prep_plural']:
+        for p in load_prepositions(language):
+            for ppns, ppnp in load_preposition_nouns(language):
+                ppn = ppns if attractor == 'prep_singular' else ppnp
+                if language in ("fr", "nl"):
+                    template = ' '.join(['{}', '{}', p, ppn])
+                elif language == "fi":
+                    # Finnish has postpositions w/ genitive nouns
+                    template = ' '.join(['{}', ppn, p])
+                templates.append(template)
     elif attractor in ['rc_singular', 'rc_plural']:
         for noun2s, noun2p in load_nouns2(language):
             noun2 = noun2s if attractor.startswith('rc_singular') else noun2p
             for verb2s, verb2p in load_verbs2(language):
+                if language == "fi":
+                    case, verb2s = verb2s.split("_")
                 verb2 = verb2s if attractor.startswith('rc_singular') else verb2p
                 if language in ("fr", "nl"):
                     template = ' '.join(['{}', '{}', LANG_COMPLEMENTIZERS[language], noun2, verb2])
+                elif language == "fi":
+                    template = ' '.join(['{}', LANG_COMPLEMENTIZERS['fi'][case], noun2, verb2])
                 else:
                     raise ValueError("Invalid language.")
                 templates.append(template)
-
+    elif attractor == "distractor":
+        if language == "fr":
+            raise ValueError("Cannot place adverbs before a verb in French.")
+        for adv1 in load_adv1(language):
+            for adv2 in load_adv2(language):
+                templates.append(' '.join(['{}', '{}', adv1, LANG_CONJUNCTIONS[language], adv2]))
+    elif attractor == "distractor_1":
+        if language == "fr":
+            raise ValueError("Cannot place adverbs before a verb in French.")
+        for adv1 in load_adv1(language):
+            templates.append(' '.join(['{}', '{}', adv1]))
     else:
-        templates = ["{} {}"]
+        templates = ["{} {}"] if language in ("fr", "nl") else ["{}"]
     return templates
 
 def construct_templates():
     # specify format of inputs. fill in with terminals later
     templates = []
-    if attractor in  ['singular', 'plural']:
+    if attractor in  ['prep_singular', 'prep_plural']:
         for p in get_prepositions():
             for ppns, ppnp in get_preposition_nouns():
-                ppn = ppns if attractor == 'singular' else ppnp
+                ppn = ppns if attractor == 'prep_singular' else ppnp
                 template = ' '.join(['The', '{}', p, 'the', ppn])
                 templates.append(template)
     elif attractor in ('rc_singular', 'rc_plural', 'rc_singular_no_that', 'rc_plural_no_that'):
@@ -108,7 +142,7 @@ def construct_interventions_bi(tokenizer, DEVICE, seed, examples, shuffle=False)
                 [word2, word2_list[idx+1]],
                 device=DEVICE)
             used_word_count += 1
-        except Exception as e:
+        except AssertionError as e:
             pass
     print(f"\t Only used {used_word_count}/{all_word_count} nouns due to tokenizer")
     if examples > 0 and len(interventions) >= examples:     # randomly sample input sentences
@@ -131,13 +165,22 @@ def construct_interventions_fr(tokenizer, DEVICE, attractor, seed, examples, lan
                     all_word_count += 1
                     try:
                         intervention_name = '_'.join([temp, ns, v_singular])
-                        interventions[intervention_name] = Intervention(
-                            tokenizer,
-                            temp.format(ns.capitalize().split()[0], "{}"),
-                            [ns.split()[1], np.split()[1]],
-                            [v_singular, v_plural],
-                            device=DEVICE)
-                        used_word_count += 1
+                        if language == "fi":
+                            interventions[intervention_name] = Intervention(
+                                tokenizer,
+                                temp,
+                                [ns, np],
+                                [v_singular, v_plural],
+                                device=DEVICE)
+                            used_word_count += 1
+                        else:
+                            interventions[intervention_name] = Intervention(
+                                tokenizer,
+                                temp.format(ns.capitalize().split()[0], "{}"),
+                                [ns.split()[1], np.split()[1]],
+                                [v_singular, v_plural],
+                                device=DEVICE)
+                            used_word_count += 1
                     except Exception as e:
                         pass
     print(f"\t Only used {used_word_count}/{all_word_count} nouns due to tokenizer")
@@ -203,7 +246,8 @@ def run_all(model_type="gpt2", device="cuda", out_dir=".",
                  TransfoXLTokenizer if model.is_txl else
                  XLNetTokenizer if model.is_xlnet else
                  BertTokenizer if model.is_bert else
-                 XLMRobertaTokenizer).from_pretrained(model_type)
+                 XLMRobertaTokenizer if model.is_xlmr else
+                 CamembertTokenizer).from_pretrained(model_type)
     # Set up folder if it does not exist
     dt_string = datetime.now().strftime("%Y%m%d")
     folder_name = dt_string+"_neuron_intervention"
