@@ -1,4 +1,4 @@
-
+import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
 import torch
 # import torch.nn as nn
@@ -17,8 +17,7 @@ from transformers import (
     TransfoXLTokenizer,
     XLNetTokenizer,
     BertForMaskedLM, BertTokenizer,
-    XLMRobertaForMaskedLM, XLMRobertaTokenizer,
-    CamembertForMaskedLM, CamembertTokenizer
+    XLMRobertaForMaskedLM, XLMRobertaTokenizer
 )
 from transformers_modified.modeling_transfo_xl import TransfoXLLMHeadModel
 from transformers_modified.modeling_xlnet import XLNetLMHeadModel
@@ -85,7 +84,7 @@ class Intervention():
         else:
             self.position = base_string.split().index('{}')
 
-        self.candidates = []
+        self.candidates = [] 
         for c in candidates:
             # 'a ' added to input so that tokenizer understand that first word
             # follows a space.
@@ -124,9 +123,8 @@ class Model():
         self.is_xlnet = gpt2_version.startswith('xlnet')
         self.is_bert = gpt2_version.startswith('bert')
         self.is_xlmr = gpt2_version.startswith('xlm-roberta')
-        self.is_camembert = gpt2_version.startswith('camembert')
         assert (self.is_gpt2 or self.is_txl or self.is_xlnet or \
-                self.is_bert or self.is_xlmr or self.is_camembert)
+                self.is_bert or self.is_xlmr)
 
         self.device = device
         #self.model = GPT2LMHeadModel.from_pretrained(
@@ -136,8 +134,7 @@ class Model():
                       XLNetLMHeadModel if self.is_xlnet else
                       TransfoXLLMHeadModel if self.is_txl else
                       BertForMaskedLM if self.is_bert else
-                      XLMRobertaForMaskedLM if self.is_xlmr else
-                      CamembertForMaskedLM).from_pretrained(
+                      XLMRobertaForMaskedLM).from_pretrained(
                 gpt2_version,
                 output_attentions=output_attentions
             )
@@ -164,8 +161,7 @@ class Model():
                       TransfoXLTokenizer if self.is_txl else
                       XLNetTokenizer if self.is_xlnet else
                       BertTokenizer if self.is_bert else
-                      XLMRobertaTokenizer if self.is_xlmr else
-                      CamembertTokenizer).from_pretrained(gpt2_version)
+                      XLMRobertaTokenizer).from_pretrained(gpt2_version)
         # Special token id's: (mask, cls, sep)
         self.st_ids = (tokenizer.mask_token_id,
                     tokenizer.cls_token_id,
@@ -190,13 +186,11 @@ class Model():
             self.word_emb_layer = self.model.transformer.word_embedding
             self.neuron_layer = lambda layer: self.model.transformer.layer[layer].ff
             self.order_dims = lambda a: (a[1], a[0], *a[2:])
-        # BERT-based models
         elif self.is_bert:
             self.attention_layer = lambda layer: self.model.bert.encoder.layer[layer].attention.self
             self.word_emb_layer = self.model.bert.embeddings.word_embeddings
             self.neuron_layer = lambda layer: self.model.bert.encoder.layer[layer].output
-        # RoBERTa-based models
-        elif self.is_xlmr or self.is_camembert:
+        elif self.is_xlmr:
             self.attention_layer = lambda layer: self.model.roberta.encoder.layer[layer].attention.self
             self.word_emb_layer = self.model.roberta.embeddings.word_embeddings
             self.neuron_layer = lambda layer: self.model.roberta.encoder.layer[layer].output
@@ -204,15 +198,19 @@ class Model():
     def mlm_inputs(self, context, candidate):
         input_tokens = []
         for i in range(len(candidate)):
-            combined = context + candidate[:i] + [self.st_ids[0]]
+            #print('context: ',type(context), context)
+            #print('candidate: ', type(candidate), candidate)
+            combined = [c + candidate[:i] + [self.st_ids[0]] for c in context]
             if self.masking_approach in [2, 5]:
                 combined = combined + candidate[i+1:]
             elif self.masking_approach in [3, 6]:
                 combined = combined + [self.st_ids[0]] * len(candidate[i+1:])
             if self.masking_approach > 3:
                 combined = [self.st_ids[1]] + combined + [self.st_ids[2]]
-            pred_idx = combined.index(self.st_ids[0])
+            
+            pred_idx = combined[0].index(self.st_ids[0])
             input_tokens.append((combined, pred_idx))
+        #print(input_tokens)
         return input_tokens
     
     def xlnet_forward(self, batch, clen):
@@ -229,7 +227,7 @@ class Model():
         target_mapping[:, :, -clen:] = torch.eye(clen)
         return self.model(batch,
                         perm_mask=perm_mask,
-                        target_mapping=target_mapping)
+                       target_mapping=target_mapping)
 
     def get_representations(self, context, position):
         # Hook for saving the representation
@@ -305,19 +303,20 @@ class Model():
 
         Returns: list containing probability for each candidate
         """
-        # TODO: Combine into single batch
-        token_log_probs = []
+       # TODO: Combine into single batch
+        #token_log_probs = []
         mean_probs = []
         context = context.tolist()
         for candidate in candidates:
-            if self.is_bert or self.is_xlmr or self.is_camembert:
+            token_log_probs = [] 
+            if self.is_bert or self.is_xlmr:
                 mlm_inputs = self.mlm_inputs(context, candidate)
                 for i, c in enumerate(candidate):
                     combined, pred_idx = mlm_inputs[i]
-                    batch = torch.tensor(combined).unsqueeze(dim=0).to(self.device)
+                    batch = torch.tensor(combined).to(self.device)
                     logits = self.model(batch)[0]
-                    log_probs = F.log_softmax(logits[-1, :, :], dim=-1)
-                    token_log_probs.append(log_probs[pred_idx][c].item())
+                    log_probs = F.log_softmax(logits, dim=-1)
+                    token_log_probs.append([log_prob[pred_idx][c].item() for log_prob in log_probs])
             elif self.is_xlnet:
                 combined = context + candidate
                 batch = torch.tensor(combined).unsqueeze(dim=0).to(self.device)
@@ -326,25 +325,27 @@ class Model():
                 for i, next_token_id in enumerate(candidate):
                     token_log_probs.append(log_probs[i][next_token_id].item())
             else:
-                combined = context + candidate
+                combined = [c + candidate for c in context]
                 # Exclude last token position when predicting next token
-                batch = torch.tensor(combined[:-1]).unsqueeze(dim=0).to(self.device)
+                batch = torch.tensor([c[:-1] for c in combined]).to(self.device)
                 # Shape (batch_size, seq_len, vocab_size)
                 logits = self.model(batch)[0]
                 # Shape (seq_len, vocab_size)
-                log_probs = F.log_softmax(logits[-1, :, :], dim=-1)
-                context_end_pos = len(context) - 1
+                log_probs = F.log_softmax(logits, dim=-1)
+                context_end_pos = len(context[0]) - 1
                 continuation_end_pos = context_end_pos + len(candidate)
                 # TODO: Vectorize this
                 # Up to but not including last token position
                 for i in range(context_end_pos, continuation_end_pos):
-                    next_token_id = combined[i+1]
-                    next_token_log_prob = log_probs[i][next_token_id].item()
+                    next_token_id = combined[0][i+1]
+                    next_token_log_prob = [log_prob[i][next_token_id].item() for log_prob in log_probs]
                     token_log_probs.append(next_token_log_prob)
-            mean_token_log_prob = statistics.mean(token_log_probs)
-            mean_token_prob = math.exp(mean_token_log_prob)
+            mean_token_log_prob = np.mean(token_log_probs, axis = 0)
+            mean_token_prob = np.exp(mean_token_log_prob)
             mean_probs.append(mean_token_prob)
-        return mean_probs
+        #print('final return: ', mean_probs)
+        mid = np.array([mean_probs]).transpose()
+        return mid.reshape(len(mid),len(mid[0]))
 
     def neuron_intervention(self,
                             context,
@@ -393,7 +394,8 @@ class Model():
 
         # Set up the context as batch
         batch_size = len(neurons)
-        context = context.unsqueeze(0).repeat(batch_size, 1)
+        context = context.repeat(batch_size,1)
+        #context = context.unsqueeze(0).repeat(batch_size, 1)
         handle_list = []
         for layer in set(layers):
             neuron_loc = np.where(np.array(layers) == layer)[0]
@@ -418,7 +420,7 @@ class Model():
                             neurons=n_list,
                             intervention=intervention_rep,
                             intervention_type=intervention_type)))
-        new_probabilities = self.get_probabilities_for_examples(
+        new_probabilities = self.get_probabilities_for_examples_multitoken(
             context,
             outputs)
         for hndle in handle_list:
@@ -563,10 +565,10 @@ class Model():
                 raise ValueError(f"Invalid intervention_type: {intervention_type}")
 
             # Probabilities without intervention (Base case)
-            candidate1_base_prob, candidate2_base_prob = self.get_probabilities_for_examples(
+            candidate1_base_prob, candidate2_base_prob = self.get_probabilities_for_examples_multitoken(
                 intervention.base_strings_tok[0].unsqueeze(0),
                 intervention.candidates_tok)[0]
-            candidate1_alt_prob, candidate2_alt_prob = self.get_probabilities_for_examples(
+            candidate1_alt_prob, candidate2_alt_prob = self.get_probabilities_for_examples_multitoken(
                 intervention.base_strings_tok[1].unsqueeze(0),
                 intervention.candidates_tok)[0]
             # Now intervening on potentially biased example
@@ -588,7 +590,9 @@ class Model():
                         position=intervention.position,
                         intervention_type=replace_or_diff,
                         alpha=alpha)
+                    #print('return :', probs)
                     for neuron, (p1, p2) in zip(neurons, probs):
+                        #print(p1,p2)
                         candidate1_probs[layer + 1][neuron] = p1
                         candidate2_probs[layer + 1][neuron] = p2
                         # Now intervening on potentially biased example
@@ -922,9 +926,10 @@ class Model():
 
 def main():
     DEVICE = 'cpu'
-    tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
-    model = Model(device=DEVICE)
-
+    tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-cased')
+    model = Model(gpt2_version = 'bert-base-multilingual-cased', device=DEVICE)
+    #tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+    #model = Model(device=DEVICE)
     base_sentence = "The {}"
     base_word = 'key'
     intervention = Intervention(
