@@ -351,19 +351,21 @@ def syneval(model_type, device, random_weights, attractor, seed):
     #interventions = construct_interventions(tokenizer, device, attractor, seed)
     n_correct_singular = 0
     n_correct_plural = 0
-    n_multitoken_increase = 0
+    #n_multitoken_increase = 0
+    n_multitoken_plural_increase = 0
+    n_multitoken_singular_increase = 0
     total = 0
     for i in tqdm(range(len(interventions))):
         intervention = interventions[i]
         if len(intervention.candidates[0]) != len(intervention.candidates[1]):
         # if len(intervention.candidates[0]) != 1 or len(intervention.candidates[1]) != 1:
             continue
-        # candidate1_base_prob, candidate2_base_prob = model.get_probabilities_for_examples_multitoken(
-        candidate1_base_prob, candidate2_base_prob = model.get_probabilities_for_examples(
+        candidate1_base_prob, candidate2_base_prob = model.get_probabilities_for_examples_multitoken(
+        # candidate1_base_prob, candidate2_base_prob = model.get_probabilities_for_examples(
                 intervention.base_string_tok.unsqueeze(0),
                 intervention.candidates_tok)[0]
-        # candidate1_alt_prob, candidate2_alt_prob = model.get_probabilities_for_examples_multitoken(
-        candidate1_alt_prob, candidate2_alt_prob = model.get_probabilities_for_examples(
+        candidate1_alt_prob, candidate2_alt_prob = model.get_probabilities_for_examples_multitoken(
+        # candidate1_alt_prob, candidate2_alt_prob = model.get_probabilities_for_examples(
             intervention.alt_string_tok.unsqueeze(0),
             intervention.candidates_tok)[0]
         total += 1
@@ -372,10 +374,13 @@ def syneval(model_type, device, random_weights, attractor, seed):
         if candidate2_alt_prob > candidate1_alt_prob:
             n_correct_plural += 1
         if candidate2_alt_prob > candidate2_base_prob:
-            n_multitoken_increase += 1
+            n_multitoken_plural_increase += 1
+        if candidate1_base_prob > candidate1_alt_prob:
+            n_multitoken_singular_increase += 1
     print("% Correct (singular): {}".format(n_correct_singular / total))
     print("% Correct (plural): {}".format(n_correct_plural / total))
-    print("% Probability increase: {}".format(n_multitoken_increase / total))
+    print("% Probability increase (singular): {}".format(n_multitoken_singular_increase / total))
+    print("% Probability increase (plural): {}".format(n_multitoken_plural_increase / total))
     print("Total examples: {}".format(total))
         
 
