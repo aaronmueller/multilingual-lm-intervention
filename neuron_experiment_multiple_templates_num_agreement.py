@@ -4,8 +4,6 @@ import os
 import sys
 import random
 
-from torch import Assert
-
 from utils_num_agreement import convert_results_to_pd
 from experiment_num_agreement import Intervention, Model
 from transformers import (
