@@ -4,6 +4,8 @@ import os
 import sys
 import random
 
+from torch import Assert
+
 from utils_num_agreement import convert_results_to_pd
 from experiment_num_agreement import Intervention, Model
 from transformers import (
@@ -181,7 +183,7 @@ def construct_interventions_fr(tokenizer, DEVICE, attractor, seed, examples, lan
                                 [v_singular, v_plural],
                                 device=DEVICE)
                             used_word_count += 1
-                    except Exception as e:
+                    except AssertionError as e:
                         pass
     print(f"\t Only used {used_word_count}/{all_word_count} nouns due to tokenizer")
     if examples > 0 and len(interventions) >= examples:     # randomly sample input sentences
@@ -209,7 +211,7 @@ def construct_interventions(tokenizer, DEVICE, attractor, seed, examples):
                             [v_singular, v_plural],
                             device=DEVICE)
                         used_word_count += 1
-                    except Exception as e:
+                    except AssertionError as e:
                         pass
         else:
             for ns, np in vocab.get_nouns():
@@ -224,7 +226,7 @@ def construct_interventions(tokenizer, DEVICE, attractor, seed, examples):
                             [v_singular, v_plural],
                             device=DEVICE)
                         used_word_count += 1
-                    except Exception as e:
+                    except AssertionError as e:
                         pass
     print(f"\t Only used {used_word_count}/{all_word_count} nouns due to tokenizer")
     if examples > 0 and len(interventions) >= examples:     # randomly sample input sentences
