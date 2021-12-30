@@ -236,8 +236,9 @@ def construct_interventions_bi(tokenizer, DEVICE, seed, shuffle=False):
             used_word_count += 1
         except AssertionError as e:
             pass
-    '''
+    
     print(f"\t Only used {used_word_count}/{all_word_count} nouns due to tokenizer")
+    '''
     if examples > 0 and len(interventions) >= examples:     # randomly sample input sentences
         random.seed(seed)
         interventions = {k: v 
@@ -278,8 +279,9 @@ def construct_interventions_fr(tokenizer, DEVICE, attractor, seed, language):
                             used_word_count += 1
                     except Exception as e:
                         pass
-    '''
+    
     print(f"\t Only used {used_word_count}/{all_word_count} nouns due to tokenizer")
+    '''
     if examples > 0 and len(interventions) >= examples:     # randomly sample input sentences
         random.seed(seed)
         interventions = {k: v 
@@ -321,7 +323,7 @@ def construct_interventions(tokenizer, DEVICE, attractor, seed):
                         used_word_count += 1
                     except AssertionError as e:
                         pass
-    #print(f"\t Only used {used_word_count}/{all_word_count} nouns due to tokenizer")
+    print(f"\t Only used {used_word_count}/{all_word_count} nouns due to tokenizer")
     #if examples > 0 and len(interventions) >= examples:     # randomly sample input sentences
     #    random.seed(seed)
     interventions = [v for k, v in interventions.items()]
