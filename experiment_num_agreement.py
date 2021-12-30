@@ -420,7 +420,7 @@ class Model():
                             neurons=n_list,
                             intervention=intervention_rep,
                             intervention_type=intervention_type)))
-        new_probabilities = self.get_probabilities_for_examples_multitoken(
+        new_probabilities = self.get_probabilities_for_examples(
             context,
             outputs)
         for hndle in handle_list:
@@ -495,7 +495,7 @@ class Model():
                                 attn_override=attn_override,
                                 attn_override_mask=attn_override_mask)))
 
-            new_probabilities = self.get_probabilities_for_examples_multitoken(
+            new_probabilities = self.get_probabilities_for_examples(
                 context,
                 outputs)
 
@@ -565,10 +565,10 @@ class Model():
                 raise ValueError(f"Invalid intervention_type: {intervention_type}")
 
             # Probabilities without intervention (Base case)
-            candidate1_base_prob, candidate2_base_prob = self.get_probabilities_for_examples_multitoken(
+            candidate1_base_prob, candidate2_base_prob = self.get_probabilities_for_examples(
                 intervention.base_strings_tok[0].unsqueeze(0),
                 intervention.candidates_tok)[0]
-            candidate1_alt_prob, candidate2_alt_prob = self.get_probabilities_for_examples_multitoken(
+            candidate1_alt_prob, candidate2_alt_prob = self.get_probabilities_for_examples(
                 intervention.base_strings_tok[1].unsqueeze(0),
                 intervention.candidates_tok)[0]
             # Now intervening on potentially biased example
