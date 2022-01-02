@@ -276,6 +276,8 @@ def run_all(model_type="gpt2", device="cuda", out_dir=".",
         df = convert_results_to_pd(interventions, intervention_results)
         # Generate file name
         random = ['random'] if random_weights else []
+        if '/' in model_type:
+            model_type = model_type.split('/')[1]
         if language != "en":
             fcomponents = random + [str(attractor), language, itype, model_type]
         else:

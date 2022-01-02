@@ -125,7 +125,7 @@ class Model():
         self.is_xlnet = gpt2_version.startswith('xlnet')
         self.is_bert = gpt2_version.startswith('bert') \
             or 'TurkuNLP/bert' in gpt2_version \
-            or 'GroNLP/bert' in gpt2_version
+            or 'wietsedv/bert' in gpt2_version
         self.is_xlmr = gpt2_version.startswith('xlm-roberta')
         self.is_camembert = gpt2_version.startswith('camembert')
         assert (self.is_gpt2 or self.is_txl or self.is_xlnet or \
