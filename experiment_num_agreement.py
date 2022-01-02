@@ -11,6 +11,9 @@ from tqdm import tqdm
 import math
 import statistics
 
+from transformers.utils.dummy_pt_objects import CamembertForMaskedLM, CamembertModel
+from transformers.utils.dummy_sentencepiece_objects import CamembertTokenizer
+
 from utils_num_agreement import batch, convert_results_to_pd
 from transformers import (
     GPT2LMHeadModel, GPT2Tokenizer,
@@ -122,10 +125,14 @@ class Model():
                         gpt2_version.startswith('distilgpt2'))
         self.is_txl = gpt2_version.startswith('transfo-xl')
         self.is_xlnet = gpt2_version.startswith('xlnet')
-        self.is_bert = gpt2_version.startswith('bert')
+        self.is_bert = gpt2_version.startswith('bert') \
+            or 'TurkuNLP/bert-base-finnish-cased-v1' in gpt2_version \
+            or 'GroNLP/bert-base-dutch-cased' in gpt2_version \
+            or gpt2_version.startswith('camembert')
+        #self.is_camebert = gpt2_version.startswith('camembert')
         self.is_xlmr = gpt2_version.startswith('xlm-roberta')
         assert (self.is_gpt2 or self.is_txl or self.is_xlnet or \
-                self.is_bert or self.is_xlmr)
+                self.is_bert or self.is_xlmr or self.is_camebert)
 
         self.device = device
         #self.model = GPT2LMHeadModel.from_pretrained(
@@ -135,6 +142,7 @@ class Model():
                       XLNetLMHeadModel if self.is_xlnet else
                       TransfoXLLMHeadModel if self.is_txl else
                       BertForMaskedLM if self.is_bert else
+                      #CamembertForMaskedLM if self.is_camebert else
                       XLMRobertaForMaskedLM).from_pretrained(
                 gpt2_version,
                 output_attentions=output_attentions
@@ -162,6 +170,7 @@ class Model():
                       TransfoXLTokenizer if self.is_txl else
                       XLNetTokenizer if self.is_xlnet else
                       BertTokenizer if self.is_bert else
+                      CamembertTokenizer if self.is_camebert else
                       XLMRobertaTokenizer).from_pretrained(gpt2_version)
         # Special token id's: (mask, cls, sep)
         self.st_ids = (tokenizer.mask_token_id,
@@ -191,6 +200,10 @@ class Model():
             self.attention_layer = lambda layer: self.model.bert.encoder.layer[layer].attention.self
             self.word_emb_layer = self.model.bert.embeddings.word_embeddings
             self.neuron_layer = lambda layer: self.model.bert.encoder.layer[layer].output
+        #elif self.is_camebert:
+        #    self.attention_layer = lambda layer: self.model.roberta.encoder.layer[layer].attention.self
+        #    self.word_emb_layer = self.model.roberta.embeddings.word_embeddings
+        #    self.neuron_layer = lambda layer: self.model.roberta.encoder.layer[layer].output
         elif self.is_xlmr:
             self.attention_layer = lambda layer: self.model.roberta.encoder.layer[layer].attention.self
             self.word_emb_layer = self.model.roberta.embeddings.word_embeddings
