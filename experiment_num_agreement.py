@@ -82,6 +82,7 @@ class Intervention():
             diff = len(base_string.split()) - base_string.split().index('{}')
             self.position = len(self.base_strings_tok[0]) - diff
             assert len(self.base_strings_tok[0]) == len(self.base_strings_tok[1])
+            assert len(self.base_strings_tok[0]) == 1
         else:
             self.position = base_string.split().index('{}')
 
