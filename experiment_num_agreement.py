@@ -1,4 +1,4 @@
-
+import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
 import torch
 # import torch.nn as nn
@@ -10,6 +10,7 @@ from tqdm import tqdm
 # from tqdm import tqdm_notebook
 import math
 import statistics
+import sys
 
 from utils_num_agreement import batch, convert_results_to_pd
 from transformers import (
@@ -205,15 +206,19 @@ class Model():
     def mlm_inputs(self, context, candidate):
         input_tokens = []
         for i in range(len(candidate)):
-            combined = context + candidate[:i] + [self.st_ids[0]]
+            #print('context: ',type(context), context)
+            #print('candidate: ', type(candidate), candidate)
+            combined = [c + candidate[:i] + [self.st_ids[0]] for c in context]
             if self.masking_approach in [2, 5]:
                 combined = combined + candidate[i+1:]
             elif self.masking_approach in [3, 6]:
                 combined = combined + [self.st_ids[0]] * len(candidate[i+1:])
             if self.masking_approach > 3:
                 combined = [self.st_ids[1]] + combined + [self.st_ids[2]]
-            pred_idx = combined.index(self.st_ids[0])
+            
+            pred_idx = combined[0].index(self.st_ids[0])
             input_tokens.append((combined, pred_idx))
+        #print(input_tokens)
         return input_tokens
     
     def xlnet_forward(self, batch, clen):
@@ -230,7 +235,7 @@ class Model():
         target_mapping[:, :, -clen:] = torch.eye(clen)
         return self.model(batch,
                         perm_mask=perm_mask,
-                        target_mapping=target_mapping)
+                       target_mapping=target_mapping)
 
     def get_representations(self, context, position):
         # Hook for saving the representation
@@ -306,8 +311,8 @@ class Model():
 
         Returns: list containing probability for each candidate
         """
-        # TODO: Combine into single batch
-        token_log_probs = []
+       # TODO: Combine into single batch
+        #token_log_probs = []
         mean_probs = []
         context = context.tolist()
         for candidate in candidates:
@@ -315,10 +320,10 @@ class Model():
                 mlm_inputs = self.mlm_inputs(context, candidate)
                 for i, c in enumerate(candidate):
                     combined, pred_idx = mlm_inputs[i]
-                    batch = torch.tensor(combined).unsqueeze(dim=0).to(self.device)
+                    batch = torch.tensor(combined).to(self.device)
                     logits = self.model(batch)[0]
-                    log_probs = F.log_softmax(logits[-1, :, :], dim=-1)
-                    token_log_probs.append(log_probs[pred_idx][c].item())
+                    log_probs = F.log_softmax(logits, dim=-1)
+                    token_log_probs.append([log_prob[pred_idx][c].item() for log_prob in log_probs])
             elif self.is_xlnet:
                 combined = context + candidate
                 batch = torch.tensor(combined).unsqueeze(dim=0).to(self.device)
@@ -329,12 +334,13 @@ class Model():
             else:
                 combined = context + candidate
                 # Exclude last token position when predicting next token
-                batch = torch.tensor(combined[:-1]).unsqueeze(dim=0).to(self.device)
+                batch = torch.tensor([c[:-1] for c in combined]).to(self.device)
                 # Shape (batch_size, seq_len, vocab_size)
                 logits = self.model(batch)[0]
                 # Shape (seq_len, vocab_size)
                 log_probs = F.log_softmax(logits[-1, :, :], dim=-1)
                 context_end_pos = len(context) - 1
+
                 continuation_end_pos = context_end_pos + len(candidate)
                 # TODO: Vectorize this
                 # Up to but not including last token position
@@ -355,6 +361,7 @@ class Model():
                             neurons,
                             position,
                             intervention_type='diff',
+                            intervention_method = 'natural',
                             alpha=1.):
         # Hook for changing representation during forward pass
         def intervention_hook(module,
@@ -394,7 +401,8 @@ class Model():
 
         # Set up the context as batch
         batch_size = len(neurons)
-        context = context.unsqueeze(0).repeat(batch_size, 1)
+        context = context.repeat(batch_size,1)
+        #context = context.unsqueeze(0).repeat(batch_size, 1)
         handle_list = []
         for layer in set(layers):
             neuron_loc = np.where(np.array(layers) == layer)[0]
@@ -404,7 +412,12 @@ class Model():
                 n_list.append(list(np.sort(unsorted_n_list)))
             if self.is_txl: m_list = list(np.array(n_list).squeeze())
             else: m_list = n_list
-            intervention_rep = alpha * rep[layer][m_list]
+            if intervention_method == 'natural':
+                intervention_rep = alpha * rep[layer][m_list]
+            elif intervention_method == 'zero':
+                intervention_rep = alpha * torch.zeros_like(rep[layer][m_list], dtype=torch.bool).float()
+            else:
+                raise ValueError(f"Invalid intervention_method: {intervention_method}")
             if layer == -1:
                 handle_list.append(self.word_emb_layer.register_forward_hook(
                     partial(intervention_hook,
@@ -419,7 +432,7 @@ class Model():
                             neurons=n_list,
                             intervention=intervention_rep,
                             intervention_type=intervention_type)))
-        new_probabilities = self.get_probabilities_for_examples(
+        new_probabilities = self.get_probabilities_for_examples_multitoken(
             context,
             outputs)
         for hndle in handle_list:
@@ -506,7 +519,7 @@ class Model():
     def neuron_intervention_experiment(self,
                                        word2intervention,
                                        intervention_type, layers_to_adj=[], neurons_to_adj=[],
-                                       alpha=1, intervention_loc='all'):
+                                       alpha=1, intervention_loc='all', intervention_method = 'natural'):
         """
         run multiple intervention experiments
         """
@@ -517,7 +530,7 @@ class Model():
         for word in tqdm(word2intervention, desc='words'):
             word2intervention_results[word] = self.neuron_intervention_single_experiment(
                 word2intervention[word], intervention_type, layers_to_adj, neurons_to_adj, 
-                alpha, intervention_loc=intervention_loc)
+                alpha, intervention_loc=intervention_loc, intervention_method = intervention_method)
 
         return word2intervention_results
 
@@ -525,7 +538,7 @@ class Model():
                                               intervention,
                                               intervention_type, layers_to_adj=[], neurons_to_adj=[],
                                               alpha=100,
-                                              bsize=800, intervention_loc='all'):
+                                              bsize=800, intervention_loc='all', intervention_method = 'natural'):
         """
         run one full neuron intervention experiment
         """
@@ -589,7 +602,9 @@ class Model():
                         position=intervention.position,
                         intervention_type=replace_or_diff,
                         alpha=alpha)
+                    #print('return :', probs)
                     for neuron, (p1, p2) in zip(neurons, probs):
+                        #print(p1,p2)
                         candidate1_probs[layer + 1][neuron] = p1
                         candidate2_probs[layer + 1][neuron] = p2
                         # Now intervening on potentially biased example
@@ -609,6 +624,7 @@ class Model():
                     neurons=neurons_to_search,
                     position=intervention.position,
                     intervention_type=replace_or_diff,
+                    intervention_method = intervention_method,
                     alpha=alpha)
                 for neuron, (p1, p2) in zip(neurons, probs):
                     candidate1_probs[0][neuron] = p1
@@ -921,11 +937,12 @@ class Model():
 
         return candidate1_probs_head, candidate2_probs_head
 
-def main():
+def main(intervention_method = 'natural'):
     DEVICE = 'cpu'
-    tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
-    model = Model(device=DEVICE)
-
+    tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-cased')
+    model = Model(gpt2_version = 'bert-base-multilingual-cased', device=DEVICE)
+    #tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+    #model = Model(device=DEVICE)
     base_sentence = "The {}"
     base_word = 'key'
     intervention = Intervention(
@@ -938,7 +955,7 @@ def main():
 
     for intervention_type in ['direct']:
         intervention_results = model.neuron_intervention_experiment(
-            interventions, intervention_type)
+            interventions, intervention_type, intervention_method = intervention_method)
         df = convert_results_to_pd(
             interventions, intervention_results)
         print('more probable candidate per layer, across all neurons in the layer')
@@ -946,4 +963,5 @@ def main():
         df.to_csv(f'results/intervention_examples/results_{intervention_type}.csv')
 
 if __name__ == "__main__":
-    main()
+    intervention_method = sys.argv[1]
+    main(intervention_method)
