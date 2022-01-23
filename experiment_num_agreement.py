@@ -1,4 +1,5 @@
 
+import sys
 from matplotlib.colors import LinearSegmentedColormap
 import torch
 # import torch.nn as nn
@@ -355,6 +356,7 @@ class Model():
                             neurons,
                             position,
                             intervention_type='diff',
+                            intervention_method = 'natural',
                             alpha=1.):
         # Hook for changing representation during forward pass
         def intervention_hook(module,
@@ -391,7 +393,7 @@ class Model():
                 scatter_mask[self.order_dims((i, position, v))] = 1
             # Then take values from base and scatter
             output.masked_scatter_(scatter_mask, base.flatten())
-
+            #print(output)
         # Set up the context as batch
         batch_size = len(neurons)
         context = context.unsqueeze(0).repeat(batch_size, 1)
@@ -404,7 +406,13 @@ class Model():
                 n_list.append(list(np.sort(unsorted_n_list)))
             if self.is_txl: m_list = list(np.array(n_list).squeeze())
             else: m_list = n_list
-            intervention_rep = alpha * rep[layer][m_list]
+            if intervention_method == 'natural':
+                intervention_rep = alpha * rep[layer][m_list]
+            elif intervention_method == 'zero':
+                intervention_rep = alpha * torch.zeros_like(rep[layer][m_list], dtype=torch.bool).float()
+            else:
+                raise ValueError(f"Invalid intervention_method: {intervention_method}")
+            #print(intervention_rep)
             if layer == -1:
                 handle_list.append(self.word_emb_layer.register_forward_hook(
                     partial(intervention_hook,
@@ -506,7 +514,7 @@ class Model():
     def neuron_intervention_experiment(self,
                                        word2intervention,
                                        intervention_type, layers_to_adj=[], neurons_to_adj=[],
-                                       alpha=1, intervention_loc='all'):
+                                       alpha=1, intervention_loc='all', intervention_method = 'natural'):
         """
         run multiple intervention experiments
         """
@@ -517,7 +525,7 @@ class Model():
         for word in tqdm(word2intervention, desc='words'):
             word2intervention_results[word] = self.neuron_intervention_single_experiment(
                 word2intervention[word], intervention_type, layers_to_adj, neurons_to_adj, 
-                alpha, intervention_loc=intervention_loc)
+                alpha, intervention_loc=intervention_loc, intervention_method = intervention_method)
 
         return word2intervention_results
 
@@ -525,7 +533,7 @@ class Model():
                                               intervention,
                                               intervention_type, layers_to_adj=[], neurons_to_adj=[],
                                               alpha=100,
-                                              bsize=800, intervention_loc='all'):
+                                              bsize=800, intervention_loc='all', intervention_method = 'natural'):
         """
         run one full neuron intervention experiment
         """
@@ -588,6 +596,7 @@ class Model():
                         neurons=neurons_to_search,
                         position=intervention.position,
                         intervention_type=replace_or_diff,
+                        intervention_method = intervention_method,
                         alpha=alpha)
                     for neuron, (p1, p2) in zip(neurons, probs):
                         candidate1_probs[layer + 1][neuron] = p1
@@ -609,6 +618,7 @@ class Model():
                     neurons=neurons_to_search,
                     position=intervention.position,
                     intervention_type=replace_or_diff,
+                    intervention_method = intervention_method,
                     alpha=alpha)
                 for neuron, (p1, p2) in zip(neurons, probs):
                     candidate1_probs[0][neuron] = p1
@@ -621,6 +631,7 @@ class Model():
                         layers=layers_to_adj,
                         neurons=neurons_to_adj,
                         position=intervention.position,
+                        intervention_method = intervention_method,
                         intervention_type=replace_or_diff,
                         alpha=alpha)
               for neuron, (p1, p2) in zip(neurons_to_adj, probs):
@@ -921,7 +932,7 @@ class Model():
 
         return candidate1_probs_head, candidate2_probs_head
 
-def main():
+def main(intervention_method = 'natural'):
     DEVICE = 'cpu'
     tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
     model = Model(device=DEVICE)
@@ -938,7 +949,7 @@ def main():
 
     for intervention_type in ['direct']:
         intervention_results = model.neuron_intervention_experiment(
-            interventions, intervention_type)
+            interventions, intervention_type, intervention_method = intervention_method)
         df = convert_results_to_pd(
             interventions, intervention_results)
         print('more probable candidate per layer, across all neurons in the layer')
@@ -946,4 +957,8 @@ def main():
         df.to_csv(f'results/intervention_examples/results_{intervention_type}.csv')
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1:
+        intervention_method = sys.argv[1]
+        main(intervention_method)
+    else:
+        main()
