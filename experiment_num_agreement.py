@@ -54,10 +54,12 @@ class Intervention():
                  base_string: str,
                  substitutes: list,
                  candidates: list,
-                 device='cpu'):
+                 device='cpu',
+                 method = 'natural'):
         super()
         self.device = device
         self.enc = tokenizer
+        self.method = method
 
         if isinstance(tokenizer, XLNetTokenizer):
             base_string = PADDING_TEXT + ' ' + base_string
@@ -76,13 +78,19 @@ class Intervention():
             add_space_before_punct_symbol=True)
             for s in self.base_strings
         ]
+        print(self.base_strings_tok)
         self.base_strings_tok = torch.LongTensor(self.base_strings_tok).to(device)
         # Where to intervene
         #self.position = base_string.split().index('{}')
         if isinstance(tokenizer, XLNetTokenizer):
             diff = len(base_string.split()) - base_string.split().index('{}')
             self.position = len(self.base_strings_tok[0]) - diff
-            assert len(self.base_strings_tok[0]) == len(self.base_strings_tok[1])
+            if method == 'natural':
+                assert len(self.base_strings_tok[0]) == len(self.base_strings_tok[1])
+            elif method == 'controlled':
+                pass
+            else:
+                raise ValueError(f"Invalid intervention method: {method}")
             assert len(self.base_strings_tok[0]) == 1
         else:
             self.position = base_string.split().index('{}')
@@ -356,7 +364,6 @@ class Model():
                             neurons,
                             position,
                             intervention_type='diff',
-                            intervention_method = 'natural',
                             alpha=1.):
         # Hook for changing representation during forward pass
         def intervention_hook(module,
@@ -393,7 +400,7 @@ class Model():
                 scatter_mask[self.order_dims((i, position, v))] = 1
             # Then take values from base and scatter
             output.masked_scatter_(scatter_mask, base.flatten())
-            #print(output)
+            print(output)
         # Set up the context as batch
         batch_size = len(neurons)
         context = context.unsqueeze(0).repeat(batch_size, 1)
@@ -406,13 +413,8 @@ class Model():
                 n_list.append(list(np.sort(unsorted_n_list)))
             if self.is_txl: m_list = list(np.array(n_list).squeeze())
             else: m_list = n_list
-            if intervention_method == 'natural':
-                intervention_rep = alpha * rep[layer][m_list]
-            elif intervention_method == 'zero':
-                intervention_rep = alpha * torch.zeros_like(rep[layer][m_list], dtype=torch.bool).float()
-            else:
-                raise ValueError(f"Invalid intervention_method: {intervention_method}")
-            #print(intervention_rep)
+            intervention_rep = alpha * rep[layer][m_list]
+            print(intervention_rep)
             if layer == -1:
                 handle_list.append(self.word_emb_layer.register_forward_hook(
                     partial(intervention_hook,
@@ -514,7 +516,7 @@ class Model():
     def neuron_intervention_experiment(self,
                                        word2intervention,
                                        intervention_type, layers_to_adj=[], neurons_to_adj=[],
-                                       alpha=1, intervention_loc='all', intervention_method = 'natural'):
+                                       alpha=1, intervention_loc='all'):
         """
         run multiple intervention experiments
         """
@@ -525,7 +527,7 @@ class Model():
         for word in tqdm(word2intervention, desc='words'):
             word2intervention_results[word] = self.neuron_intervention_single_experiment(
                 word2intervention[word], intervention_type, layers_to_adj, neurons_to_adj, 
-                alpha, intervention_loc=intervention_loc, intervention_method = intervention_method)
+                alpha, intervention_loc=intervention_loc)
 
         return word2intervention_results
 
@@ -533,7 +535,7 @@ class Model():
                                               intervention,
                                               intervention_type, layers_to_adj=[], neurons_to_adj=[],
                                               alpha=100,
-                                              bsize=800, intervention_loc='all', intervention_method = 'natural'):
+                                              bsize=800, intervention_loc='all'):
         """
         run one full neuron intervention experiment
         """
@@ -552,24 +554,33 @@ class Model():
                 intervention.base_strings_tok = torch.cat(
                     (intervention.base_strings_tok, masks), dim=1)
 
-
             base_representations = self.get_representations(
                 intervention.base_strings_tok[0],
                 intervention.position)
-            complement_representations = self.get_representations(
-                intervention.base_strings_tok[1],
-                intervention.position)
-
-            if intervention_type == 'indirect':
+            if intervention.method == "controlled":
                 context = intervention.base_strings_tok[0]
-                rep = complement_representations
-                replace_or_diff = 'replace'
-            elif intervention_type == 'direct':
-                context = intervention.base_strings_tok[1]
-                rep = base_representations 
+                print(type(base_representations))
+                rep = {}
+                for k, v in base_representations.items():
+                    print(type(v))
+                    rep[k] = torch.zeros_like(v, dtype=torch.bool).float()
+                #rep = torch.zeros_like(base_representations, dtype=torch.bool).float()
                 replace_or_diff = 'replace'
             else:
-                raise ValueError(f"Invalid intervention_type: {intervention_type}")
+                complement_representations = self.get_representations(
+                    intervention.base_strings_tok[1],
+                    intervention.position)
+
+                if intervention_type == 'indirect':
+                    context = intervention.base_strings_tok[0]
+                    rep = complement_representations
+                    replace_or_diff = 'replace'
+                elif intervention_type == 'direct':
+                    context = intervention.base_strings_tok[1]
+                    rep = base_representations 
+                    replace_or_diff = 'replace'
+                else:
+                    raise ValueError(f"Invalid intervention_type: {intervention_type}")
 
             # Probabilities without intervention (Base case)
             candidate1_base_prob, candidate2_base_prob = self.get_probabilities_for_examples(
@@ -596,7 +607,6 @@ class Model():
                         neurons=neurons_to_search,
                         position=intervention.position,
                         intervention_type=replace_or_diff,
-                        intervention_method = intervention_method,
                         alpha=alpha)
                     for neuron, (p1, p2) in zip(neurons, probs):
                         candidate1_probs[layer + 1][neuron] = p1
@@ -618,7 +628,6 @@ class Model():
                     neurons=neurons_to_search,
                     position=intervention.position,
                     intervention_type=replace_or_diff,
-                    intervention_method = intervention_method,
                     alpha=alpha)
                 for neuron, (p1, p2) in zip(neurons, probs):
                     candidate1_probs[0][neuron] = p1
@@ -631,7 +640,6 @@ class Model():
                         layers=layers_to_adj,
                         neurons=neurons_to_adj,
                         position=intervention.position,
-                        intervention_method = intervention_method,
                         intervention_type=replace_or_diff,
                         alpha=alpha)
               for neuron, (p1, p2) in zip(neurons_to_adj, probs):
@@ -935,6 +943,7 @@ class Model():
 def main(intervention_method = 'natural'):
     DEVICE = 'cpu'
     tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     model = Model(device=DEVICE)
 
     base_sentence = "The {}"
@@ -944,12 +953,13 @@ def main(intervention_method = 'natural'):
             base_sentence,
             [base_word, 'keys'],
             ["is", "are"],
-            device=DEVICE)
+            device=DEVICE,
+            method = intervention_method)
     interventions = {base_word: intervention}
 
     for intervention_type in ['direct']:
         intervention_results = model.neuron_intervention_experiment(
-            interventions, intervention_type, intervention_method = intervention_method)
+            interventions, intervention_type)
         df = convert_results_to_pd(
             interventions, intervention_results)
         print('more probable candidate per layer, across all neurons in the layer')
