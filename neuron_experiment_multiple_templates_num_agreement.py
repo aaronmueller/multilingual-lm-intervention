@@ -120,7 +120,7 @@ def construct_templates():
         templates = ['The {}']
     return templates
 
-def construct_interventions_bi(tokenizer, DEVICE, seed, examples, shuffle=False):
+def construct_interventions_bi(tokenizer, DEVICE, seed, examples, shuffle=False, intervention_method = "natural"):
     interventions = {}
     all_word_count = 0
     used_word_count = 0
@@ -140,7 +140,8 @@ def construct_interventions_bi(tokenizer, DEVICE, seed, examples, shuffle=False)
                 temp,
                 [word1, word1_list[idx+1]],
                 [word2, word2_list[idx+1]],
-                device=DEVICE)
+                device=DEVICE,
+                method = intervention_method)
             used_word_count += 1
         except AssertionError as e:
             pass
@@ -151,7 +152,7 @@ def construct_interventions_bi(tokenizer, DEVICE, seed, examples, shuffle=False)
                 for k, v in random.sample(interventions.items(), examples)}
     return interventions
 
-def construct_interventions_fr(tokenizer, DEVICE, attractor, seed, examples, language):
+def construct_interventions_fr(tokenizer, DEVICE, attractor, seed, examples, language, intervention_method = "natural"):
     interventions = {}
     all_word_count = 0
     used_word_count = 0
@@ -171,7 +172,8 @@ def construct_interventions_fr(tokenizer, DEVICE, attractor, seed, examples, lan
                                 temp,
                                 [ns, np],
                                 [v_singular, v_plural],
-                                device=DEVICE)
+                                device=DEVICE,
+                                method = intervention_method)
                             used_word_count += 1
                         else:
                             interventions[intervention_name] = Intervention(
@@ -179,7 +181,8 @@ def construct_interventions_fr(tokenizer, DEVICE, attractor, seed, examples, lan
                                 temp.format(ns.capitalize().split()[0], "{}"),
                                 [ns.split()[1], np.split()[1]],
                                 [v_singular, v_plural],
-                                device=DEVICE)
+                                device=DEVICE,
+                                method = intervention_method)
                             used_word_count += 1
                     except AssertionError as e:
                         pass
@@ -190,7 +193,7 @@ def construct_interventions_fr(tokenizer, DEVICE, attractor, seed, examples, lan
                 for k, v in random.sample(interventions.items(), examples)}
     return interventions
 
-def construct_interventions(tokenizer, DEVICE, attractor, seed, examples):
+def construct_interventions(tokenizer, DEVICE, attractor, seed, examples, intervention_method = "natural"):
     interventions = {}
     all_word_count = 0
     used_word_count = 0
@@ -202,12 +205,22 @@ def construct_interventions(tokenizer, DEVICE, attractor, seed, examples):
                     all_word_count += 1
                     try:
                         intervention_name = '_'.join([temp, noun2s, v_singular])
-                        interventions[intervention_name] = Intervention(
-                            tokenizer,
-                            temp,
-                            [noun2s, noun2p],
-                            [v_singular, v_plural],
-                            device=DEVICE)
+                        if intervention_method == "controlled":
+                            interventions[intervention_name] = Intervention(
+                                tokenizer,
+                                temp,
+                                [noun2s],#, noun2p],
+                                [v_singular, v_plural],
+                                device=DEVICE,
+                                method = intervention_method)
+                        else:
+                            interventions[intervention_name] = Intervention(
+                                tokenizer,
+                                temp,
+                                [noun2s, noun2p],
+                                [v_singular, v_plural],
+                                device=DEVICE,
+                                method = intervention_method)
                         used_word_count += 1
                     except AssertionError as e:
                         pass
@@ -217,12 +230,22 @@ def construct_interventions(tokenizer, DEVICE, attractor, seed, examples):
                     all_word_count += 1
                     try: 
                         intervention_name = '_'.join([temp, ns, v_singular])
-                        interventions[intervention_name] = Intervention(
-                            tokenizer,
-                            temp,
-                            [ns, np],
-                            [v_singular, v_plural],
-                            device=DEVICE)
+                        if intervention_method == "controlled":
+                            interventions[intervention_name] = Intervention(
+                                tokenizer,
+                                temp,
+                                [ns],#, noun2p],
+                                [v_singular, v_plural],
+                                device=DEVICE,
+                                method = intervention_method)
+                        else:
+                            interventions[intervention_name] = Intervention(
+                                tokenizer,
+                                temp,
+                                [ns, np],
+                                [v_singular, v_plural],
+                                device=DEVICE,
+                                method = intervention_method)
                         used_word_count += 1
                     except AssertionError as e:
                         pass
@@ -233,8 +256,8 @@ def construct_interventions(tokenizer, DEVICE, attractor, seed, examples):
                 for k, v in random.sample(interventions.items(), examples)}
     return interventions
 
-def run_all(model_type="gpt2", device="cuda", out_dir=".",
-        random_weights=False, attractor=None, seed=5, examples=100, language="en"):
+def run_all(model_type="gpt2", attractor=None, intervention_method = "natural", device="cuda", 
+            out_dir=".", random_weights=False, seed=5, examples=100, language="en"):
     print("Model:", model_type)
     # Set up all the potential combinations
     intervention_types = get_intervention_types()
@@ -258,13 +281,13 @@ def run_all(model_type="gpt2", device="cuda", out_dir=".",
         os.makedirs(base_path)
     if language != "en":
         interventions = construct_interventions_fr(tokenizer, device, attractor, seed,
-                examples, language)
+                examples, language, intervention_method)
     elif attractor.startswith("bigram"):
         interventions = construct_interventions_bi(tokenizer, device, seed, examples,
-                shuffle=attractor.endswith("shuffle"))
+                shuffle=attractor.endswith("shuffle"), intervention_method = intervention_method)
     else:
         interventions = construct_interventions(tokenizer, device, attractor, seed,
-                examples)
+                examples, intervention_method)
     # Consider all the intervention types
     for itype in intervention_types:
         print("\t Running with intervention: {}".format(
@@ -288,19 +311,37 @@ def run_all(model_type="gpt2", device="cuda", out_dir=".",
 
 
 if __name__ == "__main__":
-    if not (len(sys.argv) >= 8):
+    if not (len(sys.argv) >= 4):
         print("USAGE: python ", sys.argv[0], 
-"<model> <device> <out_dir> <random_weights> <attractor> <seed> <examples>")
+"<model> <attractor> <intervention_method> (<device> <out_dir> <random_weights> <seed> <examples> <language>)")
     model = sys.argv[1] # distilgpt2, gpt2, gpt2-medium, gpt2-large, gpt2-xl
+    attractor = sys.argv[2] # singular, plural or none
+    intervention_method = sys.argv[3] # natural, controlled
+    default = {'model':model, 'attractor': attractor, 'intervention_method': intervention_method,
+                'device':'cuda', 'out_dir':'.', 'random_weights': False, 
+                'seed':3, 'examples':200, 'language':'en'}
+    
+    for arg in sys.argv[4:]:
+        temp = arg.split(':')
+        keyword = temp[0]
+        value = temp[1]
+        if keyword in ['seed', 'examples']:
+            value = int(temp[1])
+        elif keyword in ['random_weights']:
+            value = bool(temp[1])
+        else:
+            value = temp[1]
+        default[keyword] = value
+    '''
     device = sys.argv[2] # cpu vs cuda
     out_dir = sys.argv[3] # dir to write results
     random_weights = sys.argv[4] == 'random' # true or false
-    attractor = sys.argv[5] # singular, plural or none
     seed = int(sys.argv[6]) # to allow consistent sampling
     examples = int(sys.argv[7]) # number of examples to try, 0 for all 
     if len(sys.argv) > 8:
         language = sys.argv[8]
     else:
         language = "en"
-    
-    run_all(model, device, out_dir, random_weights, attractor, seed, examples, language)
+    '''
+    run_all(default['model'], default['attractor'], default['intervention_method'],
+            default['device'], default['out_dir'], default['random_weights'], default['seed'], default['examples'], default['language'])

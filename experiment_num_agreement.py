@@ -60,6 +60,7 @@ class Intervention():
         self.device = device
         self.enc = tokenizer
         self.method = method
+        print(substitutes)
 
         if isinstance(tokenizer, XLNetTokenizer):
             base_string = PADDING_TEXT + ' ' + base_string
@@ -85,15 +86,22 @@ class Intervention():
         if isinstance(tokenizer, XLNetTokenizer):
             diff = len(base_string.split()) - base_string.split().index('{}')
             self.position = len(self.base_strings_tok[0]) - diff
+            assert len(self.base_strings_tok[0]) == 1
+        else:
+            self.position = base_string.split().index('{}')
             if method == 'natural':
                 assert len(self.base_strings_tok[0]) == len(self.base_strings_tok[1])
             elif method == 'controlled':
                 pass
             else:
                 raise ValueError(f"Invalid intervention method: {method}")
-            assert len(self.base_strings_tok[0]) == 1
+        # check base_string_tok length
+        if method == 'natural':
+            assert len(self.base_strings_tok[0]) == len(self.base_strings_tok[1])
+        elif method == 'controlled':
+            pass
         else:
-            self.position = base_string.split().index('{}')
+            raise ValueError(f"Invalid intervention method: {method}")
 
         self.candidates = []
         for c in candidates:
@@ -566,6 +574,8 @@ class Model():
                     rep[k] = torch.zeros_like(v, dtype=torch.bool).float()
                 #rep = torch.zeros_like(base_representations, dtype=torch.bool).float()
                 replace_or_diff = 'replace'
+                #candidate1_alt_prob = 0 
+                #candidate2_alt_prob = 0
             else:
                 complement_representations = self.get_representations(
                     intervention.base_strings_tok[1],
@@ -581,14 +591,16 @@ class Model():
                     replace_or_diff = 'replace'
                 else:
                     raise ValueError(f"Invalid intervention_type: {intervention_type}")
+                
+                candidate1_alt_prob, candidate2_alt_prob = self.get_probabilities_for_examples(
+                intervention.base_strings_tok[1].unsqueeze(0),
+                intervention.candidates_tok)[0]
 
             # Probabilities without intervention (Base case)
             candidate1_base_prob, candidate2_base_prob = self.get_probabilities_for_examples(
                 intervention.base_strings_tok[0].unsqueeze(0),
                 intervention.candidates_tok)[0]
-            candidate1_alt_prob, candidate2_alt_prob = self.get_probabilities_for_examples(
-                intervention.base_strings_tok[1].unsqueeze(0),
-                intervention.candidates_tok)[0]
+
             # Now intervening on potentially biased example
             if intervention_loc == 'all':
               candidate1_probs = torch.zeros((self.num_layers + 1, self.num_neurons))
@@ -646,8 +658,11 @@ class Model():
                   candidate1_probs = p1
                   candidate2_probs = p2
 
-
-        return (candidate1_base_prob, candidate2_base_prob,
+        if intervention.method == "controlled":
+            return (candidate1_base_prob, candidate2_base_prob,
+                candidate1_probs, candidate2_probs)
+        else:
+            return (candidate1_base_prob, candidate2_base_prob,
                 candidate1_alt_prob, candidate2_alt_prob,
                 candidate1_probs, candidate2_probs)
 
@@ -951,7 +966,7 @@ def main(intervention_method = 'natural'):
     intervention = Intervention(
             tokenizer,
             base_sentence,
-            [base_word, 'keys'],
+            [base_word],#, 'keys'],
             ["is", "are"],
             device=DEVICE,
             method = intervention_method)
