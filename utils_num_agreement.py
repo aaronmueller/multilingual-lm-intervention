@@ -16,26 +16,39 @@ def convert_results_to_pd(interventions, intervention_results, layer_fixed=None,
         interventions: dictionary from word (e.g., profession) to intervention
         intervention_results: dictionary from word to intervention results
     """
-
     results = []
     for word in intervention_results:
         intervention = interventions[word]
-        candidate1_base_prob, candidate2_base_prob,\
-            candidate1_alt1_prob, candidate2_alt1_prob,\
-            candidate1_probs, candidate2_probs = intervention_results[word]
-        # we have results for all layers and all neurons
-        results_base = {# strings
-                      'word': word,
-                      'base_string': intervention.base_strings[0],
-                      'alt_string1': intervention.base_strings[1],
-                      'candidate1': intervention.candidates[0],
-                      'candidate2': intervention.candidates[1],
+        if intervention.method == "controlled":
+            candidate1_base_prob, candidate2_base_prob,\
+                candidate1_probs, candidate2_probs = intervention_results[word]
+            # we have results for all layers and all neurons
+            results_base = {# strings
+                        'word': word,
+                        'base_string': intervention.base_strings[0],
+                        'candidate1': intervention.candidates[0],
+                        'candidate2': intervention.candidates[1],
 
-                      # base probs
-                      'candidate1_base_prob': float(candidate1_base_prob),
-                      'candidate2_base_prob': float(candidate2_base_prob),
-                      'candidate1_alt1_prob': float(candidate1_alt1_prob),
-                      'candidate2_alt1_prob': float(candidate2_alt1_prob)}
+                        # base probs
+                        'candidate1_base_prob': float(candidate1_base_prob),
+                        'candidate2_base_prob': float(candidate2_base_prob)}
+        else:
+            candidate1_base_prob, candidate2_base_prob,\
+                candidate1_alt1_prob, candidate2_alt1_prob,\
+                candidate1_probs, candidate2_probs = intervention_results[word]
+            # we have results for all layers and all neurons
+            results_base = {# strings
+                        'word': word,
+                        'base_string': intervention.base_strings[0],
+                        'alt_string1': intervention.base_strings[1],
+                        'candidate1': intervention.candidates[0],
+                        'candidate2': intervention.candidates[1],
+
+                        # base probs
+                        'candidate1_base_prob': float(candidate1_base_prob),
+                        'candidate2_base_prob': float(candidate2_base_prob),
+                        'candidate1_alt1_prob': float(candidate1_alt1_prob),
+                        'candidate2_alt1_prob': float(candidate2_alt1_prob)}
         if layer_fixed is None:
           for layer in range(candidate1_probs.size(0)):
               for neuron in range(candidate1_probs.size(1)):
