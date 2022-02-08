@@ -60,7 +60,6 @@ class Intervention():
         self.device = device
         self.enc = tokenizer
         self.method = method
-        print(substitutes)
 
         if isinstance(tokenizer, XLNetTokenizer):
             base_string = PADDING_TEXT + ' ' + base_string
@@ -79,7 +78,6 @@ class Intervention():
             add_space_before_punct_symbol=True)
             for s in self.base_strings
         ]
-        print(self.base_strings_tok)
         self.base_strings_tok = torch.LongTensor(self.base_strings_tok).to(device)
         # Where to intervene
         #self.position = base_string.split().index('{}')
@@ -408,7 +406,7 @@ class Model():
                 scatter_mask[self.order_dims((i, position, v))] = 1
             # Then take values from base and scatter
             output.masked_scatter_(scatter_mask, base.flatten())
-            print(output)
+            #print(output)
         # Set up the context as batch
         batch_size = len(neurons)
         context = context.unsqueeze(0).repeat(batch_size, 1)
@@ -422,7 +420,7 @@ class Model():
             if self.is_txl: m_list = list(np.array(n_list).squeeze())
             else: m_list = n_list
             intervention_rep = alpha * rep[layer][m_list]
-            print(intervention_rep)
+            #print(intervention_rep)
             if layer == -1:
                 handle_list.append(self.word_emb_layer.register_forward_hook(
                     partial(intervention_hook,
@@ -567,10 +565,8 @@ class Model():
                 intervention.position)
             if intervention.method == "controlled":
                 context = intervention.base_strings_tok[0]
-                print(type(base_representations))
                 rep = {}
                 for k, v in base_representations.items():
-                    print(type(v))
                     rep[k] = torch.zeros_like(v, dtype=torch.bool).float()
                 #rep = torch.zeros_like(base_representations, dtype=torch.bool).float()
                 replace_or_diff = 'replace'
