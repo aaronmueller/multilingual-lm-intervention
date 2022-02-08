@@ -167,22 +167,40 @@ def construct_interventions_fr(tokenizer, DEVICE, attractor, seed, examples, lan
                     try:
                         intervention_name = '_'.join([temp, ns, v_singular])
                         if language == "fi":
-                            interventions[intervention_name] = Intervention(
-                                tokenizer,
-                                temp,
-                                [ns, np],
-                                [v_singular, v_plural],
-                                device=DEVICE,
-                                method = intervention_method)
+                            if intervention_method == "controlled":
+                                interventions[intervention_name] = Intervention(
+                                    tokenizer,
+                                    temp,
+                                    [ns],#, np],
+                                    [v_singular, v_plural],
+                                    device=DEVICE,
+                                    method = intervention_method)
+                            else:
+                                interventions[intervention_name] = Intervention(
+                                    tokenizer,
+                                    temp,
+                                    [ns, np],
+                                    [v_singular, v_plural],
+                                    device=DEVICE,
+                                    method = intervention_method)
                             used_word_count += 1
                         else:
-                            interventions[intervention_name] = Intervention(
-                                tokenizer,
-                                temp.format(ns.capitalize().split()[0], "{}"),
-                                [ns.split()[1], np.split()[1]],
-                                [v_singular, v_plural],
-                                device=DEVICE,
-                                method = intervention_method)
+                            if intervention_method == "controlled":
+                                interventions[intervention_name] = Intervention(
+                                    tokenizer,
+                                    temp.format(ns.capitalize().split()[0], "{}"),
+                                    [ns.split()[1]],#, np.split()[1]],
+                                    [v_singular, v_plural],
+                                    device=DEVICE,
+                                    method = intervention_method)
+                            else:
+                                interventions[intervention_name] = Intervention(
+                                    tokenizer,
+                                    temp.format(ns.capitalize().split()[0], "{}"),
+                                    [ns.split()[1], np.split()[1]],
+                                    [v_singular, v_plural],
+                                    device=DEVICE,
+                                    method = intervention_method)
                             used_word_count += 1
                     except AssertionError as e:
                         pass
