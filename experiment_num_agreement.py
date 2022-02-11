@@ -60,7 +60,7 @@ class Intervention():
         self.device = device
         self.enc = tokenizer
         self.method = method
-        print(substitutes)
+        # print(substitutes)
 
         if isinstance(tokenizer, XLNetTokenizer):
             base_string = PADDING_TEXT + ' ' + base_string
@@ -79,7 +79,7 @@ class Intervention():
             add_space_before_punct_symbol=True)
             for s in self.base_strings
         ]
-        print(self.base_strings_tok)
+        # print(self.base_strings_tok)
         self.base_strings_tok = torch.LongTensor(self.base_strings_tok).to(device)
         # Where to intervene
         #self.position = base_string.split().index('{}')
@@ -140,7 +140,7 @@ class Model():
                         gpt2_version.startswith('distilgpt2'))
         self.is_txl = gpt2_version.startswith('transfo-xl')
         self.is_xlnet = gpt2_version.startswith('xlnet')
-        self.is_bert = gpt2_version.startswith('bert') or 'bert-' in gpt2_version
+        self.is_bert = gpt2_version.startswith('bert')
         self.is_xlmr = gpt2_version.startswith('xlm-roberta')
         self.is_camembert = gpt2_version.startswith('camembert')
         assert (self.is_gpt2 or self.is_txl or self.is_xlnet or \
@@ -408,7 +408,7 @@ class Model():
                 scatter_mask[self.order_dims((i, position, v))] = 1
             # Then take values from base and scatter
             output.masked_scatter_(scatter_mask, base.flatten())
-            print(output)
+            # print(output)
         # Set up the context as batch
         batch_size = len(neurons)
         context = context.unsqueeze(0).repeat(batch_size, 1)
@@ -422,7 +422,7 @@ class Model():
             if self.is_txl: m_list = list(np.array(n_list).squeeze())
             else: m_list = n_list
             intervention_rep = alpha * rep[layer][m_list]
-            print(intervention_rep)
+            # print(intervention_rep)
             if layer == -1:
                 handle_list.append(self.word_emb_layer.register_forward_hook(
                     partial(intervention_hook,
@@ -567,10 +567,10 @@ class Model():
                 intervention.position)
             if intervention.method == "controlled":
                 context = intervention.base_strings_tok[0]
-                print(type(base_representations))
+                # print(type(base_representations))
                 rep = {}
                 for k, v in base_representations.items():
-                    print(type(v))
+                    # print(type(v))
                     rep[k] = torch.zeros_like(v, dtype=torch.bool).float()
                 #rep = torch.zeros_like(base_representations, dtype=torch.bool).float()
                 replace_or_diff = 'replace'
@@ -660,6 +660,7 @@ class Model():
 
         if intervention.method == "controlled":
             return (candidate1_base_prob, candidate2_base_prob,
+                0.5, 0.5,   # if we zero out all neurons, probabilities will be approx. equal
                 candidate1_probs, candidate2_probs)
         else:
             return (candidate1_base_prob, candidate2_base_prob,
@@ -977,8 +978,8 @@ def main(intervention_method = 'natural'):
             interventions, intervention_type)
         df = convert_results_to_pd(
             interventions, intervention_results)
-        print('more probable candidate per layer, across all neurons in the layer')
-        print(df[0:5])
+        # print('more probable candidate per layer, across all neurons in the layer')
+        # print(df[0:5])
         df.to_csv(f'results/intervention_examples/results_{intervention_type}.csv')
 
 if __name__ == "__main__":

@@ -7,32 +7,32 @@ conda activate xtreme
 
 EN_MODEL="bert-base-cased"
 
-python neuron_experiment_multiple_templates_num_agreement.py $EN_MODEL cuda . false none 3 200 en zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py bert-base-finnish-cased-v1 cuda . false none 3 200 fi zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py bert-base-dutch-cased cuda . false none 3 200 nl zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py camembert-base cuda . false none 3 200 fr zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py bert-base-multilingual-cased cuda . false none 3 200 de zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py $EN_MODEL cuda . false prep_singular 3 200 en zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py bert-base-finnish-cased-v1 cuda . false prep_singular 3 200 fi zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py bert-base-dutch-cased cuda . false prep_singular 3 200 nl zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py camembert-base cuda . false prep_singular 3 200 fr zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py bert-base-multilingual-cased cuda . false prep_singular 3 200 de zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py $EN_MODEL cuda . false prep_plural 3 200 en zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py bert-base-finnish-cased-v1 cuda . false prep_plural 3 200 fi zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py bert-base-dutch-cased cuda . false prep_plural 3 200 nl zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py camembert-base cuda . false prep_plural 3 200 fr zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py bert-base-multilingual-cased cuda . false prep_plural 3 200 de zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py $EN_MODEL cuda . false rc_singular 3 200 en zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py bert-base-finnish-cased-v1 cuda . false rc_singular 3 200 fi zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py camembert-base cuda . false rc_singular 3 200 fr zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py bert-base-dutch-cased cuda . false rc_singular 3 200 nl zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py bert-base-multilingual-cased cuda . false rc_singular 3 200 de zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py $EN_MODEL cuda . false rc_plural 3 200 en zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py bert-base-finnish-cased-v1 cuda . false rc_plural 3 200 fi zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py camembert-base cuda . false rc_plural 3 200 fr zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py bert-base-dutch-cased cuda . false rc_plural 3 200 nl zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py bert-base-multilingual-cased cuda . false rc_plural 3 200 de zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py $EN_MODEL cuda . false distractor 3 200 en zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py $EN_MODEL cuda . false distractor_1 3 200 en zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py $EN_MODEL cuda . false bigram 3 200 en zero && wait
-python neuron_experiment_multiple_templates_num_agreement.py $EN_MODEL cuda . false bigram_shuffle 3 200 en zero && wait
+python neuron_experiment_multiple_templates_num_agreement.py $EN_MODEL none controlled language:en && wait
+python neuron_experiment_multiple_templates_num_agreement.py bert-base-finnish-cased-v1 none controlled language:fi && wait
+python neuron_experiment_multiple_templates_num_agreement.py bert-base-dutch-cased none controlled language:nl && wait
+python neuron_experiment_multiple_templates_num_agreement.py camembert-base none controlled language:fr && wait
+python neuron_experiment_multiple_templates_num_agreement.py bert-base-multilingual-cased none controlled language:de && wait
+python neuron_experiment_multiple_templates_num_agreement.py $EN_MODEL prep_singular controlled language:en && wait
+python neuron_experiment_multiple_templates_num_agreement.py bert-base-finnish-cased-v1 prep_singular controlled language:fi && wait
+python neuron_experiment_multiple_templates_num_agreement.py bert-base-dutch-cased prep_singular controlled language:nl && wait
+python neuron_experiment_multiple_templates_num_agreement.py camembert-base prep_singular controlled language:fr && wait
+python neuron_experiment_multiple_templates_num_agreement.py bert-base-multilingual-cased prep_singular controlled language:de && wait
+python neuron_experiment_multiple_templates_num_agreement.py $EN_MODEL prep_plural controlled language:en && wait
+python neuron_experiment_multiple_templates_num_agreement.py bert-base-finnish-cased-v1 prep_plural controlled language:fi && wait
+python neuron_experiment_multiple_templates_num_agreement.py bert-base-dutch-cased prep_plural controlled language:nl && wait
+python neuron_experiment_multiple_templates_num_agreement.py camembert-base prep_plural controlled language:fr && wait
+python neuron_experiment_multiple_templates_num_agreement.py bert-base-multilingual-cased prep_plural controlled language:de && wait
+python neuron_experiment_multiple_templates_num_agreement.py $EN_MODEL rc_singular controlled language:en && wait
+python neuron_experiment_multiple_templates_num_agreement.py bert-base-finnish-cased-v1 rc_singular controlled language:fi && wait
+python neuron_experiment_multiple_templates_num_agreement.py camembert-base rc_singular controlled language:fr && wait
+python neuron_experiment_multiple_templates_num_agreement.py bert-base-dutch-cased rc_singular controlled language:nl && wait
+python neuron_experiment_multiple_templates_num_agreement.py bert-base-multilingual-cased rc_singular controlled language:de && wait
+python neuron_experiment_multiple_templates_num_agreement.py $EN_MODEL rc_plural controlled language:en && wait
+python neuron_experiment_multiple_templates_num_agreement.py bert-base-finnish-cased-v1 rc_plural controlled language:fi && wait
+python neuron_experiment_multiple_templates_num_agreement.py camembert-base rc_plural controlled language:fr && wait
+python neuron_experiment_multiple_templates_num_agreement.py bert-base-dutch-cased rc_plural controlled language:nl && wait
+python neuron_experiment_multiple_templates_num_agreement.py bert-base-multilingual-cased rc_plural controlled language:de && wait
+python neuron_experiment_multiple_templates_num_agreement.py $EN_MODEL distractor controlled language:en && wait
+python neuron_experiment_multiple_templates_num_agreement.py $EN_MODEL distractor_1 controlled language:en && wait
+python neuron_experiment_multiple_templates_num_agreement.py $EN_MODEL bigram controlled language:en && wait
+python neuron_experiment_multiple_templates_num_agreement.py $EN_MODEL bigram_shuffle controlled language:en && wait

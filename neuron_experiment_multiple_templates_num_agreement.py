@@ -24,6 +24,11 @@ def get_intervention_types():
     return ['indirect', 'direct']
 
 def construct_templates_fr(language):
+    if "_" in language:
+        lang_key = language.split("_")[0]
+    else:
+        lang_key = language
+    
     LANG_COMPLEMENTIZERS = {
         'fr': 'que',
         'nl': 'die',
@@ -43,12 +48,12 @@ def construct_templates_fr(language):
 
     templates = []
     if attractor in ['prep_singular', 'prep_plural']:
-        for p in load_prepositions(language):
+        for p in load_prepositions(lang_key):
             for ppns, ppnp in load_preposition_nouns(language):
                 ppn = ppns if attractor == 'prep_singular' else ppnp
-                if language in ("fr", "nl"):
+                if lang_key in ("fr", "nl", "de"):
                     template = ' '.join(['{}', '{}', p, ppn])
-                elif language == "fi":
+                elif lang_key == "fi":
                     # Finnish has postpositions w/ genitive nouns
                     template = ' '.join(['{}', ppn, p])
                 templates.append(template)
@@ -56,29 +61,31 @@ def construct_templates_fr(language):
         for noun2s, noun2p in load_nouns2(language):
             noun2 = noun2s if attractor.startswith('rc_singular') else noun2p
             for verb2s, verb2p in load_verbs2(language):
-                if language == "fi":
+                if lang_key == "fi":
                     case, verb2s = verb2s.split("_")
                 verb2 = verb2s if attractor.startswith('rc_singular') else verb2p
-                if language in ("fr", "nl"):
-                    template = ' '.join(['{}', '{}', LANG_COMPLEMENTIZERS[language], noun2, verb2])
-                elif language == "fi":
+                if lang_key in ("fr", "nl"):
+                    template = ' '.join(['{}', '{}', LANG_COMPLEMENTIZERS[lang_key], noun2, verb2])
+                elif lang_key == "fi":
                     template = ' '.join(['{}', LANG_COMPLEMENTIZERS['fi'][case], noun2, verb2])
+                elif lang_key == "de":  # fill in complementizer later
+                    template = ' '.join(['{}', '{}', '{}', noun2, verb2])
                 else:
                     raise ValueError("Invalid language.")
                 templates.append(template)
     elif attractor == "distractor":
         if language == "fr":
             raise ValueError("Cannot place adverbs before a verb in French.")
-        for adv1 in load_adv1(language):
-            for adv2 in load_adv2(language):
+        for adv1 in load_adv1(lang_key):
+            for adv2 in load_adv2(lang_key):
                 templates.append(' '.join(['{}', '{}', adv1, LANG_CONJUNCTIONS[language], adv2]))
     elif attractor == "distractor_1":
         if language == "fr":
             raise ValueError("Cannot place adverbs before a verb in French.")
-        for adv1 in load_adv1(language):
+        for adv1 in load_adv1(lang_key):
             templates.append(' '.join(['{}', '{}', adv1]))
     else:
-        templates = ["{} {}"] if language in ("fr", "nl") else ["{}"]
+        templates = ["{} {}"] if lang_key in ("fr", "nl", "de") else ["{}"]
     return templates
 
 def construct_templates():
@@ -143,7 +150,7 @@ def construct_interventions_bi(tokenizer, DEVICE, seed, examples, shuffle=False,
                 device=DEVICE,
                 method = intervention_method)
             used_word_count += 1
-        except AssertionError as e:
+        except Exception as e:
             pass
     print(f"\t Only used {used_word_count}/{all_word_count} nouns due to tokenizer")
     if examples > 0 and len(interventions) >= examples:     # randomly sample input sentences
@@ -153,6 +160,17 @@ def construct_interventions_bi(tokenizer, DEVICE, seed, examples, shuffle=False,
     return interventions
 
 def construct_interventions_fr(tokenizer, DEVICE, attractor, seed, examples, language, intervention_method = "natural"):
+    if "_" in language:
+        lang_key = language.split("_")[0]
+    else:
+        lang_key = language
+    
+    NOM_TO_ACC = {
+        'der': 'den',
+        'das': 'das',
+        'die': 'die'
+    }
+    
     interventions = {}
     all_word_count = 0
     used_word_count = 0
@@ -162,29 +180,33 @@ def construct_interventions_fr(tokenizer, DEVICE, attractor, seed, examples, lan
             pass
         else:
             for ns, np in load_nouns(language):
+                if lang_key == "de" and attractor.startswith('rc'):
+                    complementizer = NOM_TO_ACC[ns.split()[0]]
+                    temp_mod = temp.format(ns.capitalize().split()[0], "{}", complementizer)
+                elif lang_key in ("fr", "nl", "de"):
+                    temp_mod = temp.format(ns.capitalize().split()[0], "{}")
+                else:
+                    temp_mod = temp
+                if lang_key in ("fr", "nl", "de"):
+                    ns = ns.split()[1]
+                    np = np.split()[1]
+                if intervention_method == "controlled":
+                    noun_list = [ns]
+                else:
+                    noun_list = [ns, np]
                 for v_singular, v_plural in load_verbs(language):
                     all_word_count += 1
                     try:
                         intervention_name = '_'.join([temp, ns, v_singular])
-                        if language == "fi":
-                            interventions[intervention_name] = Intervention(
-                                tokenizer,
-                                temp,
-                                [ns, np],
-                                [v_singular, v_plural],
-                                device=DEVICE,
-                                method = intervention_method)
-                            used_word_count += 1
-                        else:
-                            interventions[intervention_name] = Intervention(
-                                tokenizer,
-                                temp.format(ns.capitalize().split()[0], "{}"),
-                                [ns.split()[1], np.split()[1]],
-                                [v_singular, v_plural],
-                                device=DEVICE,
-                                method = intervention_method)
-                            used_word_count += 1
-                    except AssertionError as e:
+                        interventions[intervention_name] = Intervention(
+                            tokenizer,
+                            temp_mod,
+                            noun_list,
+                            [v_singular, v_plural],
+                            device=DEVICE,
+                            method=intervention_method)
+                        used_word_count += 1
+                    except Exception as e:
                         pass
     print(f"\t Only used {used_word_count}/{all_word_count} nouns due to tokenizer")
     if examples > 0 and len(interventions) >= examples:     # randomly sample input sentences
@@ -201,53 +223,43 @@ def construct_interventions(tokenizer, DEVICE, attractor, seed, examples, interv
     for temp in templates:
         if attractor.startswith('within_rc'):
             for noun2s, noun2p in get_nouns2():
+                if intervention_method == "controlled":
+                    noun_list = [noun2s]
+                else:
+                    noun_list = [noun2s, noun2p]
                 for v_singular, v_plural in vocab.get_verbs():
                     all_word_count += 1
                     try:
                         intervention_name = '_'.join([temp, noun2s, v_singular])
-                        if intervention_method == "controlled":
-                            interventions[intervention_name] = Intervention(
-                                tokenizer,
-                                temp,
-                                [noun2s],#, noun2p],
-                                [v_singular, v_plural],
-                                device=DEVICE,
-                                method = intervention_method)
-                        else:
-                            interventions[intervention_name] = Intervention(
-                                tokenizer,
-                                temp,
-                                [noun2s, noun2p],
-                                [v_singular, v_plural],
-                                device=DEVICE,
-                                method = intervention_method)
+                        interventions[intervention_name] = Intervention(
+                            tokenizer,
+                            temp,
+                            noun_list,
+                            [v_singular, v_plural],
+                            device=DEVICE,
+                            method = intervention_method)
                         used_word_count += 1
-                    except AssertionError as e:
+                    except Exception as e:
                         pass
         else:
             for ns, np in vocab.get_nouns():
+                if intervention_method == "controlled":
+                    noun_list = [ns]
+                else:
+                    noun_list = [ns, np]
                 for v_singular, v_plural in vocab.get_verbs():
                     all_word_count += 1
                     try: 
                         intervention_name = '_'.join([temp, ns, v_singular])
-                        if intervention_method == "controlled":
-                            interventions[intervention_name] = Intervention(
-                                tokenizer,
-                                temp,
-                                [ns],#, noun2p],
-                                [v_singular, v_plural],
-                                device=DEVICE,
-                                method = intervention_method)
-                        else:
-                            interventions[intervention_name] = Intervention(
-                                tokenizer,
-                                temp,
-                                [ns, np],
-                                [v_singular, v_plural],
-                                device=DEVICE,
-                                method = intervention_method)
+                        interventions[intervention_name] = Intervention(
+                            tokenizer,
+                            temp,
+                            noun_list,
+                            [v_singular, v_plural],
+                            device=DEVICE,
+                            method = intervention_method)
                         used_word_count += 1
-                    except AssertionError as e:
+                    except Exception as e:
                         pass
     print(f"\t Only used {used_word_count}/{all_word_count} nouns due to tokenizer")
     if examples > 0 and len(interventions) >= examples:     # randomly sample input sentences
@@ -301,10 +313,8 @@ def run_all(model_type="gpt2", attractor=None, intervention_method = "natural", 
         random = ['random'] if random_weights else []
         if '/' in model_type:
             model_type = model_type.split('/')[1]
-        if language != "en":
-            fcomponents = random + [str(attractor), language, itype, model_type]
-        else:
-            fcomponents = random + [str(attractor), itype, model_type]
+        
+        fcomponents = random + [str(attractor), language, itype, model_type, intervention_method]
         fname = "_".join(fcomponents)
         # Finally, save each exp separately
         df.to_csv(os.path.join(base_path, fname+".csv"))
@@ -320,7 +330,7 @@ if __name__ == "__main__":
     default = {'model':model, 'attractor': attractor, 'intervention_method': intervention_method,
                 'device':'cuda', 'out_dir':'.', 'random_weights': False, 
                 'seed':3, 'examples':200, 'language':'en'}
-    
+
     for arg in sys.argv[4:]:
         temp = arg.split(':')
         keyword = temp[0]
@@ -336,12 +346,19 @@ if __name__ == "__main__":
     device = sys.argv[2] # cpu vs cuda
     out_dir = sys.argv[3] # dir to write results
     random_weights = sys.argv[4] == 'random' # true or false
+    attractor = sys.argv[5]
     seed = int(sys.argv[6]) # to allow consistent sampling
     examples = int(sys.argv[7]) # number of examples to try, 0 for all 
     if len(sys.argv) > 8:
         language = sys.argv[8]
     else:
         language = "en"
+    if len(sys.argv) > 9:
+        intervention_method = sys.argv[9]
+    else:
+        intervention_method = "natural"
+    
+    run_all(model, attractor, intervention_method, device, out_dir, random_weights, seed, examples, language)
     '''
     run_all(default['model'], default['attractor'], default['intervention_method'],
             default['device'], default['out_dir'], default['random_weights'], default['seed'], default['examples'], default['language'])
