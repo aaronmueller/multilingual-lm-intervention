@@ -20,8 +20,11 @@ import vocab_utils as vocab
 Run all the extraction for a model across many templates
 '''
 
-def get_intervention_types():
-    return ['indirect', 'direct']
+def get_intervention_types(intervetion_method = "natural"):
+    if intervetion_method == "natural":
+        return ['indirect', 'direct']
+    else:
+        return ['indirect']
 
 def construct_templates_fr(language):
     LANG_COMPLEMENTIZERS = {
@@ -278,7 +281,7 @@ def run_all(model_type="gpt2", attractor=None, intervention_method = "natural", 
             out_dir=".", random_weights=False, seed=5, examples=100, language="en"):
     print("Model:", model_type)
     # Set up all the potential combinations
-    intervention_types = get_intervention_types()
+    intervention_types = get_intervention_types(intervention_method)
     # Initialize Model and Tokenizer
     # tokenizer = GPT2Tokenizer.from_pretrained(model_type)
     model = Model(device=device, gpt2_version=model_type, 
@@ -297,6 +300,7 @@ def run_all(model_type="gpt2", attractor=None, intervention_method = "natural", 
         base_path = os.path.join(base_path, "random")
     if not os.path.exists(base_path):
         os.makedirs(base_path)
+    print(language)
     if language != "en":
         interventions = construct_interventions_fr(tokenizer, device, attractor, seed,
                 examples, language, intervention_method)
