@@ -23,7 +23,7 @@ def load_bigrams():
             word2_list.append(word2)
     return (word1_list, word2_list)
 
-def load_nouns(language):
+def load_nouns(language, short=False):
     nouns_list = []
     with open(os.path.join(WORDS_PATH, f"noun_{language}.txt"), 'r') as nouns:
         for line in nouns:
@@ -33,7 +33,7 @@ def load_nouns(language):
                 nouns_list.append(line.strip().split("\t"))
     return nouns_list
 
-def load_nouns2(language):
+def load_nouns2(language, short=False):
     nouns2_list = []
     with open(os.path.join(WORDS_PATH, f"noun2_{language}.txt"), 'r') as nouns2:
         for line in nouns2:
@@ -43,14 +43,14 @@ def load_nouns2(language):
                 nouns2_list.append(line.strip().split("\t"))
     return nouns2_list
 
-def load_verbs(language):
+def load_verbs(language, short=False):
     verb_list = []
     with open(os.path.join(WORDS_PATH, f"verb_{language}.txt"), 'r') as verbs:
         for line in verbs:
             verb_list.append(line.strip().split())
     return verb_list
 
-def load_verbs2(language):
+def load_verbs2(language, short=False):
     verb2_list = []
     with open(os.path.join(WORDS_PATH, f"verb2_{language}.txt"), 'r') as verbs2:
         for line in verbs2:
@@ -64,7 +64,7 @@ def load_prepositions(language):
             prep_list.append(line.strip())
     return prep_list
 
-def load_preposition_nouns(language):
+def load_preposition_nouns(language, short=False):
     prepnoun_list = []
     with open(os.path.join(WORDS_PATH, f"prepnoun_{language}.txt"), 'r') as prepnouns:
         for line in prepnouns:
