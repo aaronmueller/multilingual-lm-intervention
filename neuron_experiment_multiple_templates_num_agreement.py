@@ -20,8 +20,11 @@ import vocab_utils as vocab
 Run all the extraction for a model across many templates
 '''
 
-def get_intervention_types():
-    return ['indirect', 'direct']
+def get_intervention_types(intervention_method = 'natural'):
+    if intervention_method == 'controlled':
+        return ['indirect']
+    else:
+        return ['indirect', 'direct']
 
 def construct_templates_fr(language):
     if "_" in language:
@@ -272,7 +275,7 @@ def run_all(model_type="gpt2", attractor=None, intervention_method = "natural", 
             out_dir=".", random_weights=False, seed=5, examples=100, language="en"):
     print("Model:", model_type)
     # Set up all the potential combinations
-    intervention_types = get_intervention_types()
+    intervention_types = get_intervention_types(intervention_method)
     # Initialize Model and Tokenizer
     # tokenizer = GPT2Tokenizer.from_pretrained(model_type)
     model = Model(device=device, gpt2_version=model_type, 
