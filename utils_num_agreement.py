@@ -26,16 +26,17 @@ def convert_results_to_pd(interventions, intervention_results, layer_fixed=None,
         # we have results for all layers and all neurons
         results_base = {# strings
                       'word': word,
-                      'base_string': intervention.base_strings[0],
-                      'alt_string1': intervention.base_strings[1],
-                      'candidate1': intervention.candidates[0],
-                      'candidate2': intervention.candidates[1],
+                      'base_string': intervention.base_strings[0]}
+        if intervention.method == "natural":
+            results_base['alt_string1'] = intervention.base_strings[1]
+        results_base.update({'candidate1': intervention.candidates[0],
+                                'candidate2': intervention.candidates[1],
 
-                      # base probs
-                      'candidate1_base_prob': float(candidate1_base_prob),
-                      'candidate2_base_prob': float(candidate2_base_prob),
-                      'candidate1_alt1_prob': float(candidate1_alt1_prob),
-                      'candidate2_alt1_prob': float(candidate2_alt1_prob)}
+                                # base probs
+                                'candidate1_base_prob': float(candidate1_base_prob),
+                                'candidate2_base_prob': float(candidate2_base_prob),
+                                'candidate1_alt1_prob': float(candidate1_alt1_prob),
+                                'candidate2_alt1_prob': float(candidate2_alt1_prob)})
         if layer_fixed is None:
           for layer in range(candidate1_probs.size(0)):
               for neuron in range(candidate1_probs.size(1)):
