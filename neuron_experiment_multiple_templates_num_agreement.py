@@ -3,6 +3,7 @@ from datetime import datetime
 import os
 import sys
 import random
+from argparse import ArgumentParser
 
 from utils_num_agreement import convert_results_to_pd
 from experiment_num_agreement import Intervention, Model
@@ -321,6 +322,7 @@ def run_all(model_type="gpt2", attractor=None, intervention_method = "natural", 
 
 
 if __name__ == "__main__":
+    '''
     if not (len(sys.argv) >= 4):
         print("USAGE: python ", sys.argv[0], 
 "<model> <attractor> <intervention_method> (<device> <out_dir> <random_weights> <seed> <examples> <language>)")
@@ -343,22 +345,33 @@ if __name__ == "__main__":
             value = temp[1]
         default[keyword] = value
     '''
-    device = sys.argv[2] # cpu vs cuda
-    out_dir = sys.argv[3] # dir to write results
-    random_weights = sys.argv[4] == 'random' # true or false
-    attractor = sys.argv[5]
-    seed = int(sys.argv[6]) # to allow consistent sampling
-    examples = int(sys.argv[7]) # number of examples to try, 0 for all 
-    if len(sys.argv) > 8:
-        language = sys.argv[8]
-    else:
-        language = "en"
-    if len(sys.argv) > 9:
-        intervention_method = sys.argv[9]
-    else:
-        intervention_method = "natural"
+    #if not (len(sys.argv) >= 3):
+    #    print("USAGE: python ", sys.argv[0], 
+#"<model> <attractor> (<intervention_method> <device> <out_dir> <random_weights> <seed> <examples> <language>)")
     
+    ap = ArgumentParser(description="Neuron subset selection.")
+    ap.add_argument('--model', type=str, default='bert-base-cased')
+    ap.add_argument('--attractor', type=str, default='none')
+    ap.add_argument('--intervention_method', type=str, choices=['natural','controlled'],default='natural')
+    ap.add_argument('--device', type=str, choices = ['cuda', 'cpu'],default='cuda')
+    ap.add_argument('--out_dir', type=str, default='.')
+    ap.add_argument('--seed', type=int, default=3)
+    ap.add_argument('--examples', type=int, default=200)
+    ap.add_argument('--language', type=str, default = 'en')
+    ap.add_argument('--random_weights', type=bool, default=False)
+
+    args = ap.parse_args()
+    
+    model = args.model
+    attractor = args.attractor
+    intervention_method = args.intervention_method
+    device = args.device
+    out_dir = args.out_dir
+    seed = args.seed
+    random_weights = args.random_weights
+    examples = args.examples
+    language = args.language
+
     run_all(model, attractor, intervention_method, device, out_dir, random_weights, seed, examples, language)
-    '''
-    run_all(default['model'], default['attractor'], default['intervention_method'],
-            default['device'], default['out_dir'], default['random_weights'], default['seed'], default['examples'], default['language'])
+    #run_all(default['model'], default['attractor'], default['intervention_method'],
+    #        default['device'], default['out_dir'], default['random_weights'], default['seed'], default['examples'], default['language'])
