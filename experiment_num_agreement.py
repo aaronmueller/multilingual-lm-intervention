@@ -19,10 +19,12 @@ from transformers import (
     XLNetTokenizer,
     BertForMaskedLM, BertTokenizer,
     XLMRobertaForMaskedLM, XLMRobertaTokenizer,
-    CamembertForMaskedLM, CamembertTokenizer
+    CamembertForMaskedLM, CamembertTokenizer,
+    XGLMTokenizer
 )
-from transformers_modified.modeling_transfo_xl import TransfoXLLMHeadModel
-from transformers_modified.modeling_xlnet import XLNetLMHeadModel
+# from transformers_modified.modeling_transfo_xl import TransfoXLLMHeadModel
+# from transformers_modified.modeling_xlnet import XLNetLMHeadModel
+from transformers_modified.modeling_xglm import XGLMForCausalLM
 from attention_intervention_model import (
     AttentionOverride, TXLAttentionOverride, XLNetAttentionOverride, BertAttentionOverride
 )
@@ -75,8 +77,8 @@ class Intervention():
         #self.base_strings_tok = torch.LongTensor(self.base_strings_tok)\
         #                             .to(device)
         self.base_strings_tok = [
-            self.enc.encode(s, add_special_tokens=False, 
-            add_space_before_punct_symbol=True)
+            self.enc.encode(s, add_special_tokens=False)#, 
+            # add_space_before_punct_symbol=True)
             for s in self.base_strings
         ]
         # print(self.base_strings_tok)
@@ -89,12 +91,6 @@ class Intervention():
             assert len(self.base_strings_tok[0]) == 1
         else:
             self.position = base_string.split().index('{}')
-            if method == 'natural':
-                assert len(self.base_strings_tok[0]) == len(self.base_strings_tok[1])
-            elif method == 'controlled':
-                pass
-            else:
-                raise ValueError(f"Invalid intervention method: {method}")
         # check base_string_tok length
         if method == 'natural':
             assert len(self.base_strings_tok[0]) == len(self.base_strings_tok[1])
@@ -108,16 +104,18 @@ class Intervention():
             # 'a ' added to input so that tokenizer understand that first word
             # follows a space.
             # tokens = self.enc.tokenize('. ' + c)[1:] 
-            tokens = self.enc.tokenize('a ' + c,
-                add_space_before_punct_symbol=True)[1:]
+            tokens = self.enc.tokenize('a ' + c)[1:]#,
+            #     add_space_before_punct_symbol=True)[1:]
+            # print("candidates:", tokens)
             assert(len(tokens) == 1)
             self.candidates.append(tokens)
 
         for s in substitutes:
             # 'a ' added to input so that tokenizer understand that first word
             # follows a space.
-            tokens = self.enc.tokenize('a ' + s,
-                add_space_before_punct_symbol=True)[1:]
+            tokens = self.enc.tokenize('a ' + s)[1:]#,
+            #     add_space_before_punct_symbol=True)[1:]
+            # print("substitutes:", tokens)
             assert(len(tokens) == 1)
 
         self.candidates_tok = [self.enc.convert_tokens_to_ids(tokens)
@@ -143,8 +141,10 @@ class Model():
         self.is_bert = gpt2_version.startswith('bert')
         self.is_xlmr = gpt2_version.startswith('xlm-roberta')
         self.is_camembert = gpt2_version.startswith('camembert')
+        self.is_xglm = gpt2_version.startswith('facebook/xglm')
         assert (self.is_gpt2 or self.is_txl or self.is_xlnet or \
-                self.is_bert or self.is_xlmr or self.is_camembert)
+                self.is_bert or self.is_xlmr or self.is_camembert or \
+                self.is_xglm)
 
         self.device = device
         #self.model = GPT2LMHeadModel.from_pretrained(
@@ -155,7 +155,8 @@ class Model():
                       TransfoXLLMHeadModel if self.is_txl else
                       BertForMaskedLM if self.is_bert else
                       XLMRobertaForMaskedLM if self.is_xlmr else
-                      CamembertForMaskedLM).from_pretrained(
+                      CamembertForMaskedLM if self.is_camembert else
+                      XGLMForCausalLM).from_pretrained(
                 gpt2_version,
                 output_attentions=output_attentions
             )
@@ -183,7 +184,8 @@ class Model():
                       XLNetTokenizer if self.is_xlnet else
                       BertTokenizer if self.is_bert else
                       XLMRobertaTokenizer if self.is_xlmr else
-                      CamembertTokenizer).from_pretrained(gpt2_version)
+                      CamembertTokenizer if self.is_camembert else
+                      XGLMTokenizer).from_pretrained(gpt2_version)
         # Special token id's: (mask, cls, sep)
         self.st_ids = (tokenizer.mask_token_id,
                     tokenizer.cls_token_id,
@@ -208,6 +210,11 @@ class Model():
             self.word_emb_layer = self.model.transformer.word_embedding
             self.neuron_layer = lambda layer: self.model.transformer.layer[layer].ff
             self.order_dims = lambda a: (a[1], a[0], *a[2:])
+        elif self.is_xglm:
+            self.attention_layer = lambda layer: self.model.model.layers[layer].self_attn
+            self.word_emb_layer = self.model.model.embed_tokens
+            self.neuron_layer = lambda layer: self.model.model.layers[layer].ff
+            # self.order_dims = lambda a: (a[1], a[0], *a[2:])
         # BERT-based models
         elif self.is_bert:
             self.attention_layer = lambda layer: self.model.bert.encoder.layer[layer].attention.self
@@ -259,7 +266,7 @@ class Model():
                                         layer):
             # representations[layer] = output[0][position]
             if self.is_xlnet and output.shape[0] == 1: return output
-            representations[layer] = output[self.order_dims((0, position))] 
+            representations[layer] = output[self.order_dims((0, position))]
             
         handles = []
         representation = {}

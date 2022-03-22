@@ -8,7 +8,7 @@ from utils_num_agreement import convert_results_to_pd
 from experiment_num_agreement import Intervention, Model
 from transformers import (
     GPT2Tokenizer, TransfoXLTokenizer, XLNetTokenizer, BertTokenizer,
-    XLMRobertaTokenizer, CamembertTokenizer
+    XLMRobertaTokenizer, CamembertTokenizer, XGLMTokenizer
 )
 from vocab_utils import get_nouns, get_nouns2, get_verbs, get_verbs2, get_prepositions, \
         get_preposition_nouns, get_adv1s, get_adv2s
@@ -127,12 +127,22 @@ def construct_templates():
         templates = ['The {}']
     return templates
 
-def construct_interventions_bi(tokenizer, DEVICE, seed, examples, shuffle=False, intervention_method = "natural"):
+def construct_interventions_bi(structure, tokenizer, DEVICE, seed, examples, shuffle=False, intervention_method = "natural"):
     interventions = {}
     all_word_count = 0
     used_word_count = 0
-    temp = "{}"
-    word1_list, word2_list = load_bigrams()
+    if structure == "semantic":
+        structure = "semantic_short"
+
+    word1_list, word2_list = load_bigrams(structure)
+
+    if structure.startswith("bigram"):
+        temp = "{}"
+    elif structure == "semantic_short":
+        temp = "The {}"     # the <adj> <noun>
+        word1_list, word2_list = word2_list, word1_list
+    elif structure == "semantic_long":
+        temp = "The {} is"  # the <noun> is <adj>
     if shuffle:
         random.shuffle(word1_list)
         random.shuffle(word2_list)
@@ -282,7 +292,8 @@ def run_all(model_type="gpt2", attractor=None, intervention_method = "natural", 
                  XLNetTokenizer if model.is_xlnet else
                  BertTokenizer if model.is_bert else
                  XLMRobertaTokenizer if model.is_xlmr else
-                 CamembertTokenizer).from_pretrained(model_type)
+                 CamembertTokenizer if model.is_camembert else
+                 XGLMTokenizer).from_pretrained(model_type)
     # Set up folder if it does not exist
     dt_string = datetime.now().strftime("%Y%m%d")
     folder_name = dt_string+"_neuron_intervention"
@@ -294,8 +305,8 @@ def run_all(model_type="gpt2", attractor=None, intervention_method = "natural", 
     if language != "en":
         interventions = construct_interventions_fr(tokenizer, device, attractor, seed,
                 examples, language, intervention_method)
-    elif attractor.startswith("bigram"):
-        interventions = construct_interventions_bi(tokenizer, device, seed, examples,
+    elif attractor.startswith("bigram") or attractor.startswith("semantic"):
+        interventions = construct_interventions_bi(attractor, tokenizer, device, seed, examples,
                 shuffle=attractor.endswith("shuffle"), intervention_method = intervention_method)
     else:
         interventions = construct_interventions(tokenizer, device, attractor, seed,
@@ -338,7 +349,10 @@ if __name__ == "__main__":
         if keyword in ['seed', 'examples']:
             value = int(temp[1])
         elif keyword in ['random_weights']:
-            value = bool(temp[1])
+            if value.lower().startswith("f"):
+                value = False
+            else:
+                value = bool(temp[1])
         else:
             value = temp[1]
         default[keyword] = value
