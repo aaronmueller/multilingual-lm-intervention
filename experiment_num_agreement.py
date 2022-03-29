@@ -426,7 +426,7 @@ class Model():
             for n in neurons:
                 unsorted_n_list = [n[i] for i in neuron_loc]
                 n_list.append(list(np.sort(unsorted_n_list)))
-            if self.is_txl: m_list = list(np.array(n_list).squeeze())
+            if self.is_txl or self.is_xglm: m_list = list(np.array(n_list).squeeze())
             else: m_list = n_list
             intervention_rep = alpha * rep[layer][m_list]
             # print(intervention_rep)
@@ -556,6 +556,7 @@ class Model():
         """
 
         if self.is_txl: bsize = 100
+        if self.is_xglm: bsize = 200
 
         if self.is_xlnet or self.is_txl: 32
         with torch.no_grad():
