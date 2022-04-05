@@ -426,7 +426,11 @@ class Model():
             for n in neurons:
                 unsorted_n_list = [n[i] for i in neuron_loc]
                 n_list.append(list(np.sort(unsorted_n_list)))
-            if self.is_txl or self.is_xglm: m_list = list(np.array(n_list).squeeze())
+            if self.is_txl or self.is_xglm:
+                try:
+                    m_list = list(np.array(n_list).squeeze())
+                except TypeError:
+                    m_list = list(np.array(n_list).squeeze(0))
             else: m_list = n_list
             intervention_rep = alpha * rep[layer][m_list]
             # print(intervention_rep)

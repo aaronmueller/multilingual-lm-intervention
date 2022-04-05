@@ -23,7 +23,7 @@ Run all the extraction for a model across many templates
 def get_intervention_types():
     return ['indirect', 'direct']
 
-def construct_templates_fr(language):
+def construct_templates_fr(language, attractor):
     if "_" in language:
         lang_key = language.split("_")[0]
     else:
@@ -88,7 +88,7 @@ def construct_templates_fr(language):
         templates = ["{} {}"] if lang_key in ("fr", "nl", "de") else ["{}"]
     return templates
 
-def construct_templates():
+def construct_templates(attractor):
     # specify format of inputs. fill in with terminals later
     templates = []
     if attractor in  ['prep_singular', 'prep_plural']:
@@ -184,7 +184,7 @@ def construct_interventions_fr(tokenizer, DEVICE, attractor, seed, examples, lan
     interventions = {}
     all_word_count = 0
     used_word_count = 0
-    templates = construct_templates_fr(language)
+    templates = construct_templates_fr(language, attractor)
     for temp in templates:
         if attractor.startswith('within_rc'):
             pass
@@ -229,7 +229,7 @@ def construct_interventions(tokenizer, DEVICE, attractor, seed, examples, interv
     interventions = {}
     all_word_count = 0
     used_word_count = 0
-    templates = construct_templates()
+    templates = construct_templates(attractor)
     for temp in templates:
         if attractor.startswith('within_rc'):
             for noun2s, noun2p in get_nouns2():
