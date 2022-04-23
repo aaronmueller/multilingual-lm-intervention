@@ -14,7 +14,7 @@ def get_percentage(file):
     max_ratio = max_num / num_neurons
     # get percentage of neurons to get total IE
     total_neuron = df['odds_ratio'][-1]
-    total_num = np.array(df['n_neurons'])[df['odds_ratio'] == total_neuron][0]
+    total_num = np.array(df['n_neurons'])[df['odds_ratio'] >= total_neuron][0]
     total_ratio = total_num / num_neurons
     return (model[0], model[1], model[2][:-7], max_ratio, total_ratio)
 
