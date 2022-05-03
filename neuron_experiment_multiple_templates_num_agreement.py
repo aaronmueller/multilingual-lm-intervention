@@ -19,6 +19,15 @@ import vocab_utils as vocab
 '''
 Run all the extraction for a model across many templates
 '''
+LANG_COMPLEMENTIZERS = {
+    'fr': 'que',
+    'nl': 'die',
+    # German inflects the complementizer for case and number
+    'de': {'M': 'den', 'N': 'das', 'F': 'die'},
+    # Finnish inflects the complementizer for case and number
+    'fi': {'P': 'jota', 'E': 'josta', 'I': 'johon',
+            'Al': 'jolle', 'Ac': 'jonka'}
+}
 
 def get_intervention_types():
     return ['indirect', 'direct']
@@ -57,6 +66,17 @@ def construct_templates_fr(language, attractor):
                     # Finnish has postpositions w/ genitive nouns
                     template = ' '.join(['{}', ppn, p])
                 templates.append(template)
+    elif attractor in ('within_rc_singular', 'within_rc_plural'):
+        for ns, np in load_nouns(language):
+            noun = ns if attractor.startswith('within_rc_singular') else np
+            # template = ' '.join(['The', noun, 'that', 'the', '{}'])
+            if lang_key in ("fr", "nl"):
+                template = ' '.join([noun, LANG_COMPLEMENTIZERS[lang_key], '{}', '{}'])
+            elif lang_key == "fi":
+                template = ' '.join([noun, '{}', '{}'])
+            elif lang_key == "de":
+                template = ' '.join([noun, '{}', '{}', '{}'])
+            templates.append(template)
     elif attractor in ['rc_singular', 'rc_plural']:
         for noun2s, noun2p in load_nouns2(language):
             noun2 = noun2s if attractor.startswith('rc_singular') else noun2p
@@ -187,7 +207,38 @@ def construct_interventions_fr(tokenizer, DEVICE, attractor, seed, examples, lan
     templates = construct_templates_fr(language, attractor)
     for temp in templates:
         if attractor.startswith('within_rc'):
-            pass
+            for noun2s, noun2p in load_nouns2(language):
+                temp_mod = temp.capitalize()
+                if lang_key in ("fr", "nl"):
+                    temp_mod = temp.format(noun2s.split()[0], "{}")
+                    noun2s = noun2s.split()[1]
+                    noun2p = noun2p.split()[1]
+                elif lang_key == "de":
+                    complementizer = NOM_TO_ACC[temp.split()[0]]
+                    temp_mod = temp.format(complementizer, noun2s.split()[0], "{}")
+                    noun2s = noun2s.split()[1]
+                    noun2p = noun2p.split()[1]
+                if intervention_method == "controlled":
+                    noun_list = [noun2s]
+                else:
+                    noun_list = [noun2s, noun2p]
+                for v_singular, v_plural in load_verbs2(language):
+                    if language == "fi":
+                        case, v_singular = v_singular.split("_")
+                        temp_mod = temp.format(LANG_COMPLEMENTIZERS['fi'][case], "{}")
+                    all_word_count += 1
+                    try:
+                        intervention_name = '_'.join([temp, noun2s, v_singular])
+                        interventions[intervention_name] = Intervention(
+                            tokenizer,
+                            temp_mod,
+                            noun_list,
+                            [v_singular, v_plural],
+                            device=DEVICE,
+                            method=intervention_method)
+                        used_word_count += 1
+                    except Exception as e:
+                        pass
         else:
             for ns, np in load_nouns(language):
                 if lang_key == "de" and attractor.startswith('rc'):
@@ -237,7 +288,7 @@ def construct_interventions(tokenizer, DEVICE, attractor, seed, examples, interv
                     noun_list = [noun2s]
                 else:
                     noun_list = [noun2s, noun2p]
-                for v_singular, v_plural in vocab.get_verbs():
+                for v_singular, v_plural in vocab.get_verbs2():
                     all_word_count += 1
                     try:
                         intervention_name = '_'.join([temp, noun2s, v_singular])
