@@ -13,10 +13,14 @@ templates = {
     "adv_conjunction": "{} {} et {} {}"
 }
 
-def load_bigrams():
+def load_bigrams(structure):
     word1_list = []
     word2_list = []
-    with open(os.path.join(VOCAB_PATH, "bigrams.txt"), 'r') as bigrams:
+    if structure.startswith("bigram"):
+        word_file = "bigrams.txt"
+    elif structure.startswith("semantic"):
+        word_file = "semantic_agr.txt"
+    with open(os.path.join(VOCAB_PATH, word_file), 'r') as bigrams:
         for line in bigrams:
             word1, word2 = line.strip().split()
             word1_list.append(word1)
@@ -27,7 +31,7 @@ def load_nouns(language, short=False):
     nouns_list = []
     with open(os.path.join(WORDS_PATH, f"noun_{language}.txt"), 'r') as nouns:
         for line in nouns:
-            if language == "fi":
+            if language.startswith("fi"):
                 nouns_list.append(line.strip().split())
             else:
                 nouns_list.append(line.strip().split("\t"))
@@ -37,7 +41,7 @@ def load_nouns2(language, short=False):
     nouns2_list = []
     with open(os.path.join(WORDS_PATH, f"noun2_{language}.txt"), 'r') as nouns2:
         for line in nouns2:
-            if language == "fi":
+            if language.startswith("fi"):
                 nouns2_list.append(line.strip().split())
             else:
                 nouns2_list.append(line.strip().split("\t"))
@@ -68,7 +72,7 @@ def load_preposition_nouns(language, short=False):
     prepnoun_list = []
     with open(os.path.join(WORDS_PATH, f"prepnoun_{language}.txt"), 'r') as prepnouns:
         for line in prepnouns:
-            if language == "fi":
+            if language.startswith("fi"):
                 prepnoun_list.append(line.strip().split())
             else:
                 prepnoun_list.append(line.strip().split("\t"))

@@ -1,0 +1,11 @@
+Ac_menettää menettävät
+Ac_käyttää käyttävät
+Ac_vetää vetävät
+P_seuraa seuraavat
+P_rakastaa rakastavat
+P_välttää välttävät
+Ac_työntää työntävät
+Ac_tapaa tapaavat
+E_pitää pitävät
+P_vihaa vihavat
+Ac_voittaa voittavat

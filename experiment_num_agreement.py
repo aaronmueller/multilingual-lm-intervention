@@ -138,7 +138,7 @@ class Model():
                         gpt2_version.startswith('distilgpt2'))
         self.is_txl = gpt2_version.startswith('transfo-xl')
         self.is_xlnet = gpt2_version.startswith('xlnet')
-        self.is_bert = gpt2_version.startswith('bert')
+        self.is_bert = gpt2_version.startswith('bert') or ("bert-base" in gpt2_version and "camembert" not in gpt2_version)
         self.is_xlmr = gpt2_version.startswith('xlm-roberta')
         self.is_camembert = gpt2_version.startswith('camembert')
         self.is_xglm = gpt2_version.startswith('facebook/xglm')

@@ -22,7 +22,7 @@ from vocab_utils import get_nouns, get_nouns2, get_verbs, get_verbs2, get_prepos
 from generate_all_sentences import load_nouns, load_verbs, load_nouns2, load_verbs2, load_bigrams, \
         load_adv1, load_adv2, load_prepositions, load_preposition_nouns
 from neuron_experiment_multiple_templates_num_agreement import construct_interventions_fr, \
-        construct_templates_fr
+        construct_templates_fr, construct_interventions_bi
 import vocab_utils as vocab
 
 np.random.seed(1)
@@ -93,6 +93,21 @@ def construct_templates(attractor):
     else:   # defaults to simple agreement
         templates = ['The {}']
     return templates
+
+def construct_templates_bi(attractor):
+    if attractor == "semantic":
+        attractor = "semantic_short"
+
+    word1_list, word2_list = load_bigrams(attractor)
+
+    if attractor.startswith("bigram"):
+        temp = ["{}"]
+    elif attractor == "semantic_short":
+        temp = ["The {}"]     # the <adj> <noun>
+        word1_list, word2_list = word2_list, word1_list
+    elif attractor == "semantic_long":
+        temp = ["The {} is"]  # the <noun> is <adj>
+    return temp
 
 def construct_interventions(tokenizer, DEVICE, attractor, seed, examples, intervention_method = "natural"):
     interventions = {}
@@ -205,7 +220,11 @@ def get_intervention_results(model, templates, tokenizer, DEVICE='cuda', attract
   # for template in templates:
     # pickle.dump(template + "_" + gender, open("results/log.pickle", "wb" ) )
   if language == 'en':
-    interventions = construct_interventions(tokenizer, DEVICE, attractor, seed, examples, intervention_method)
+    if 'bigram' in attractor or 'semantic' in attractor:
+      shuffle = 'shuffle' in attractor
+      interventions = construct_interventions_bi(attractor, tokenizer, DEVICE, seed, examples, shuffle, intervention_method)
+    else:
+      interventions = construct_interventions(tokenizer, DEVICE, attractor, seed, examples, intervention_method)
   else:
     interventions = construct_interventions_fr(tokenizer, DEVICE, attractor, seed, examples, language, intervention_method)
   intervention_results = model.neuron_intervention_experiment(interventions, intervention_type, 
@@ -274,7 +293,7 @@ def top_k(model, model_type, tokenizer, attractor, language, templates, layer_li
 
     pickle.dump(odd_abs_list, open(out_dir + "/topk_" + model_name + ".pickle", "wb" ))
 
-
+# iteratively sample top-k neurons by NIE, intervene on all simultaneously
 def top_k_all_seq(model, model_type, tokenizer, attractor, language, templates, layer_list, neuron_list, k=50, out_dir='sparsity'):
   odd_abs_list = []
   n_neurons_list = []
@@ -492,7 +511,10 @@ if __name__ == '__main__':
     DEVICE = 'cuda'
 
     if language == 'en':
-      templates = construct_templates(attractor)
+      if 'bigram' in attractor or 'semantic' in attractor:
+        templates = construct_templates_bi(attractor)
+      else:
+        templates = construct_templates(attractor)
     else:
       templates = construct_templates_fr(language, attractor)
 

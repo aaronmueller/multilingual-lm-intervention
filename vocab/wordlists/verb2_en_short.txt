@@ -1,0 +1,10 @@
+likes like
+hates hate
+uses use
+keeps keep
+hears hear
+holds hold
+loses lose
+wins win
+pulls pull
+kills kill

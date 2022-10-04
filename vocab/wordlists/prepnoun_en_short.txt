@@ -1,0 +1,10 @@
+bike bikes
+car cars
+door doors
+chair chairs
+desk desks
+house houses
+table tables
+tree trees
+truck trucks
+beam beams

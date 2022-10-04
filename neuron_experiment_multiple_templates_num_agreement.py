@@ -194,7 +194,7 @@ def construct_interventions_fr(tokenizer, DEVICE, attractor, seed, examples, lan
         lang_key = language.split("_")[0]
     else:
         lang_key = language
-    
+        
     NOM_TO_ACC = {
         'der': 'den',
         'das': 'das',
@@ -223,7 +223,7 @@ def construct_interventions_fr(tokenizer, DEVICE, attractor, seed, examples, lan
                 else:
                     noun_list = [noun2s, noun2p]
                 for v_singular, v_plural in load_verbs2(language):
-                    if language == "fi":
+                    if language.startswith("fi"):
                         case, v_singular = v_singular.split("_")
                         temp_mod = temp.format(LANG_COMPLEMENTIZERS['fi'][case], "{}")
                     all_word_count += 1
@@ -353,7 +353,7 @@ def run_all(model_type="gpt2", attractor=None, intervention_method = "natural", 
         base_path = os.path.join(base_path, "random")
     if not os.path.exists(base_path):
         os.makedirs(base_path)
-    if language != "en":
+    if not language.startswith("en"):
         interventions = construct_interventions_fr(tokenizer, device, attractor, seed,
                 examples, language, intervention_method)
     elif attractor.startswith("bigram") or attractor.startswith("semantic"):
