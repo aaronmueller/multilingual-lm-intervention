@@ -29,9 +29,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from transformers.configuration_transfo_xl import TransfoXLConfig
-from transformers.file_utils import add_start_docstrings, add_start_docstrings_to_callable
-from transformers.modeling_transfo_xl_utilities import ProjectedAdaptiveLogSoftmax
+from transformers.models.transfo_xl.configuration_transfo_xl import TransfoXLConfig
+#from transformers import TransfoXLConfig
+from transformers.file_utils import add_start_docstrings, add_start_docstrings_to_model_forward#add_start_docstrings_to_callable
+from transformers.models.transfo_xl.modeling_transfo_xl_utilities import ProjectedAdaptiveLogSoftmax
 from transformers.modeling_utils import PreTrainedModel
 
 
@@ -672,7 +673,8 @@ class TransfoXLModel(TransfoXLPreTrainedModel):
 
         return new_mems
 
-    @add_start_docstrings_to_callable(TRANSFO_XL_INPUTS_DOCSTRING)
+    @add_start_docstrings_to_model_forward(TRANSFO_XL_INPUTS_DOCSTRING)
+    #@add_start_docstrings_to_callable(TRANSFO_XL_INPUTS_DOCSTRING)
     def forward(self, input_ids=None, mems=None, head_mask=None, inputs_embeds=None):
         r"""
     Return:
@@ -843,8 +845,9 @@ class TransfoXLLMHeadModel(TransfoXLPreTrainedModel):
 
     def init_mems(self, bsz):
         return self.transformer.init_mems(bsz)
-
-    @add_start_docstrings_to_callable(TRANSFO_XL_INPUTS_DOCSTRING)
+    
+    @add_start_docstrings_to_model_forward(TRANSFO_XL_INPUTS_DOCSTRING)
+    #@add_start_docstrings_to_callable(TRANSFO_XL_INPUTS_DOCSTRING)
     def forward(self, input_ids=None, mems=None, head_mask=None, inputs_embeds=None, labels=None):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`, defaults to :obj:`None`):

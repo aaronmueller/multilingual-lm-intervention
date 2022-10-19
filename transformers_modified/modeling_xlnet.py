@@ -28,12 +28,13 @@ from torch import nn
 from torch.nn import CrossEntropyLoss, MSELoss
 from torch.nn import functional as F
 
-from transformers.activations import gelu_new, swish
-from transformers.configuration_xlnet import XLNetConfig
-from transformers.file_utils import add_start_docstrings, add_start_docstrings_to_callable
+from transformers.activations import gelu_new#, swish
+from transformers.activations import get_activation
+from transformers.models.xlnet.configuration_xlnet import XLNetConfig
+from transformers.file_utils import add_start_docstrings, add_start_docstrings_to_model_forward#add_start_docstrings_to_callable
 from transformers.modeling_utils import PoolerAnswerClass, PoolerEndLogits, PoolerStartLogits, PreTrainedModel, SequenceSummary
 
-
+swish = get_activation("swish")
 logger = logging.getLogger(__name__)
 
 XLNET_PRETRAINED_MODEL_ARCHIVE_MAP = {
@@ -692,8 +693,8 @@ class XLNetModel(XLNetPreTrainedModel):
 
         pos_emb = pos_emb.to(next(self.parameters()))
         return pos_emb
-
-    @add_start_docstrings_to_callable(XLNET_INPUTS_DOCSTRING)
+    @add_start_docstrings_to_model_forward(XLNET_INPUTS_DOCSTRING)
+    #@add_start_docstrings_to_callable(XLNET_INPUTS_DOCSTRING)
     def forward(
         self,
         input_ids=None,
@@ -961,8 +962,8 @@ class XLNetLMHeadModel(XLNetPreTrainedModel):
             inputs["mems"] = past
 
         return inputs
-
-    @add_start_docstrings_to_callable(XLNET_INPUTS_DOCSTRING)
+    @add_start_docstrings_to_model_forward(XLNET_INPUTS_DOCSTRING)
+    #@add_start_docstrings_to_callable(XLNET_INPUTS_DOCSTRING)
     def forward(
         self,
         input_ids=None,
@@ -1068,8 +1069,8 @@ class XLNetForSequenceClassification(XLNetPreTrainedModel):
         self.logits_proj = nn.Linear(config.d_model, config.num_labels)
 
         self.init_weights()
-
-    @add_start_docstrings_to_callable(XLNET_INPUTS_DOCSTRING)
+    @add_start_docstrings_to_model_forward(XLNET_INPUTS_DOCSTRING)
+    #@add_start_docstrings_to_callable(XLNET_INPUTS_DOCSTRING)
     def forward(
         self,
         input_ids=None,
@@ -1163,8 +1164,8 @@ class XLNetForTokenClassification(XLNetPreTrainedModel):
         self.classifier = nn.Linear(config.hidden_size, config.num_labels)
 
         self.init_weights()
-
-    @add_start_docstrings_to_callable(XLNET_INPUTS_DOCSTRING)
+    @add_start_docstrings_to_model_forward(XLNET_INPUTS_DOCSTRING)
+    #@add_start_docstrings_to_callable(XLNET_INPUTS_DOCSTRING)
     def forward(
         self,
         input_ids=None,
@@ -1261,8 +1262,8 @@ class XLNetForMultipleChoice(XLNetPreTrainedModel):
         self.logits_proj = nn.Linear(config.d_model, 1)
 
         self.init_weights()
-
-    @add_start_docstrings_to_callable(XLNET_INPUTS_DOCSTRING)
+    @add_start_docstrings_to_model_forward(XLNET_INPUTS_DOCSTRING)
+    #@add_start_docstrings_to_callable(XLNET_INPUTS_DOCSTRING)
     def forward(
         self,
         input_ids=None,
@@ -1362,8 +1363,8 @@ class XLNetForQuestionAnsweringSimple(XLNetPreTrainedModel):
         self.qa_outputs = nn.Linear(config.hidden_size, config.num_labels)
 
         self.init_weights()
-
-    @add_start_docstrings_to_callable(XLNET_INPUTS_DOCSTRING)
+    @add_start_docstrings_to_model_forward(XLNET_INPUTS_DOCSTRING)
+    #@add_start_docstrings_to_callable(XLNET_INPUTS_DOCSTRING)
     def forward(
         self,
         input_ids=None,
@@ -1477,8 +1478,8 @@ class XLNetForQuestionAnswering(XLNetPreTrainedModel):
         self.answer_class = PoolerAnswerClass(config)
 
         self.init_weights()
-
-    @add_start_docstrings_to_callable(XLNET_INPUTS_DOCSTRING)
+    @add_start_docstrings_to_model_forward(XLNET_INPUTS_DOCSTRING)
+    #@add_start_docstrings_to_callable(XLNET_INPUTS_DOCSTRING)
     def forward(
         self,
         input_ids=None,
