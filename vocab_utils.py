@@ -91,7 +91,7 @@ def get_nouns(short=False):
         return [(s,p) for s, p in zip(nouns['n_singular'], nouns['n_plural'])]
     else:
         nouns_list = []
-        with open(os.path.join(WORDS_PATH, f"noun_short.txt"), 'r') as nouns:
+        with open(os.path.join(WORDS_PATH, f"noun_en_short.txt"), 'r') as nouns:
             for line in nouns:
                 nouns_list.append(line.strip().split())
         return nouns_list
@@ -103,7 +103,7 @@ def get_nouns2(short=False):
               nouns2['n2_plural'])]
     else:
         nouns2_list = []
-        with open(os.path.join(WORDS_PATH, f"noun2_short.txt"), 'r') as nouns2:
+        with open(os.path.join(WORDS_PATH, f"noun2_en_short.txt"), 'r') as nouns2:
             for line in nouns2:
                 nouns2_list.append(line.strip().split())
         return nouns2_list
@@ -115,7 +115,7 @@ def get_verbs(short=False):
             verbs['v_plural'])]
     else:
         verbs_list = []
-        with open(os.path.join(WORDS_PATH, f"verb_short.txt"), 'r') as verbs:
+        with open(os.path.join(WORDS_PATH, f"verb_en_short.txt"), 'r') as verbs:
             for line in verbs:
                 verbs_list.append(line.strip().split())
         return verbs_list
@@ -127,7 +127,7 @@ def get_verbs2(short=False):
             verbs2['v2_plural'])]
     else:
         verbs2_list = []
-        with open(os.path.join(WORDS_PATH, f"verb2_short.txt"), 'r') as verbs2:
+        with open(os.path.join(WORDS_PATH, f"verb2_en_short.txt"), 'r') as verbs2:
             for line in verbs2:
                 verbs2_list.append(line.strip().split())
         return verbs2_list
@@ -138,7 +138,7 @@ def get_preposition_nouns(short=False):
             ppns['ppn_plural'])]
     else:
         prepnouns_list = []
-        with open(os.path.join(WORDS_PATH, f"prepnoun_short.txt"), 'r') as prepnouns:
+        with open(os.path.join(WORDS_PATH, f"prepnoun_en_short.txt"), 'r') as prepnouns:
             for line in prepnouns:
                 prepnouns_list.append(line.strip().split())
         return prepnouns_list

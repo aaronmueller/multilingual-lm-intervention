@@ -22,39 +22,32 @@ Run all the extraction for a model across many templates
 LANG_COMPLEMENTIZERS = {
     'fr': 'que',
     'nl': 'die',
-    # German inflects the complementizer for case and number
+    # German inflects the accusative complementizer for gender.
     'de': {'M': 'den', 'N': 'das', 'F': 'die'},
-    # Finnish inflects the complementizer for case and number
+    # Finnish inflects the complementizer for case.
     'fi': {'P': 'jota', 'E': 'josta', 'I': 'johon',
             'Al': 'jolle', 'Ac': 'jonka'}
+}
+
+LANG_CONJUNCTIONS = {
+    'fr': 'et',
+    'nl': 'en',
+    'de': 'und',
+    'fi': 'ja'
 }
 
 def get_intervention_types():
     return ['indirect', 'direct']
 
+# Templates for non-English structures.
 def construct_templates_fr(language, attractor):
+    # get rid of "_short" suffix if present
     if "_" in language:
         lang_key = language.split("_")[0]
     else:
         lang_key = language
-    
-    LANG_COMPLEMENTIZERS = {
-        'fr': 'que',
-        'nl': 'die',
-        # German inflects the complementizer for case and number
-        'de': {'M': 'den', 'N': 'das', 'F': 'die'},
-        # Finnish inflects the complementizer for case and number
-        'fi': {'P': 'jota', 'E': 'josta', 'I': 'johon',
-               'Al': 'jolle', 'Ac': 'jonka'}
-    }
 
-    LANG_CONJUNCTIONS = {
-        'fr': 'et',
-        'nl': 'en',
-        'de': 'und',
-        'fi': 'ja'
-    }
-
+    # load templates. fill in terminals later
     templates = []
     if attractor in ['prep_singular', 'prep_plural']:
         for p in load_prepositions(lang_key):
@@ -108,19 +101,20 @@ def construct_templates_fr(language, attractor):
         templates = ["{} {}"] if lang_key in ("fr", "nl", "de") else ["{}"]
     return templates
 
-def construct_templates(attractor):
+# Templates for English syntactic agreement structures.
+def construct_templates(attractor, short=False):
     # specify format of inputs. fill in with terminals later
     templates = []
     if attractor in  ['prep_singular', 'prep_plural']:
         for p in get_prepositions():
-            for ppns, ppnp in get_preposition_nouns():
+            for ppns, ppnp in get_preposition_nouns(short=short):
                 ppn = ppns if attractor == 'prep_singular' else ppnp
                 template = ' '.join(['The', '{}', p, 'the', ppn])
                 templates.append(template)
     elif attractor in ('rc_singular', 'rc_plural', 'rc_singular_no_that', 'rc_plural_no_that'):
-        for noun2s, noun2p in get_nouns2():
+        for noun2s, noun2p in get_nouns2(short=short):
             noun2 = noun2s if attractor.startswith('rc_singular') else noun2p
-            for verb2s, verb2p in get_verbs2():
+            for verb2s, verb2p in get_verbs2(short=short):
                 verb2 = verb2s if attractor.startswith('rc_singular') else verb2p
                 if attractor.endswith('no_that'):
                     template = ' '.join(['The', '{}', 'the', noun2, verb2])
@@ -128,7 +122,7 @@ def construct_templates(attractor):
                     template = ' '.join(['The', '{}', 'that', 'the', noun2, verb2])
                 templates.append(template)
     elif attractor in ('within_rc_singular', 'within_rc_plural', 'within_rc_singular_no_that', 'within_rc_plural_no_that'):
-        for ns, np in vocab.get_nouns():
+        for ns, np in vocab.get_nouns(short=short):
             noun = ns if attractor.startswith('within_rc_singular') else np
             if attractor.endswith('no_that'):
                 template = ' '.join(['The', noun, 'the', '{}'])
@@ -147,6 +141,7 @@ def construct_templates(attractor):
         templates = ['The {}']
     return templates
 
+# Templates for English token collocation/semantic plausibility baselines.
 def construct_interventions_bi(structure, tokenizer, DEVICE, seed, examples, shuffle=False, intervention_method = "natural"):
     interventions = {}
     all_word_count = 0
@@ -189,6 +184,7 @@ def construct_interventions_bi(structure, tokenizer, DEVICE, seed, examples, shu
                 for k, v in random.sample(interventions.items(), examples)}
     return interventions
 
+# Construct intervention objects for non-English structures.
 def construct_interventions_fr(tokenizer, DEVICE, attractor, seed, examples, language, intervention_method = "natural"):
     if "_" in language:
         lang_key = language.split("_")[0]
@@ -276,19 +272,20 @@ def construct_interventions_fr(tokenizer, DEVICE, attractor, seed, examples, lan
                 for k, v in random.sample(interventions.items(), examples)}
     return interventions
 
-def construct_interventions(tokenizer, DEVICE, attractor, seed, examples, intervention_method = "natural"):
+# Construct intervention objects for English structures.
+def construct_interventions(tokenizer, DEVICE, attractor, seed, examples, intervention_method = "natural", short=False):
     interventions = {}
     all_word_count = 0
     used_word_count = 0
-    templates = construct_templates(attractor)
+    templates = construct_templates(attractor, short=short)
     for temp in templates:
         if attractor.startswith('within_rc'):
-            for noun2s, noun2p in get_nouns2():
+            for noun2s, noun2p in get_nouns2(short=short):
                 if intervention_method == "controlled":
                     noun_list = [noun2s]
                 else:
                     noun_list = [noun2s, noun2p]
-                for v_singular, v_plural in vocab.get_verbs2():
+                for v_singular, v_plural in vocab.get_verbs2(short=short):
                     all_word_count += 1
                     try:
                         intervention_name = '_'.join([temp, noun2s, v_singular])
@@ -303,12 +300,12 @@ def construct_interventions(tokenizer, DEVICE, attractor, seed, examples, interv
                     except Exception as e:
                         pass
         else:
-            for ns, np in vocab.get_nouns():
+            for ns, np in vocab.get_nouns(short=short):
                 if intervention_method == "controlled":
                     noun_list = [ns]
                 else:
                     noun_list = [ns, np]
-                for v_singular, v_plural in vocab.get_verbs():
+                for v_singular, v_plural in vocab.get_verbs(short=short):
                     all_word_count += 1
                     try: 
                         intervention_name = '_'.join([temp, ns, v_singular])
@@ -329,6 +326,7 @@ def construct_interventions(tokenizer, DEVICE, attractor, seed, examples, interv
                 for k, v in random.sample(interventions.items(), examples)}
     return interventions
 
+# Load model, tokenizer, interventions. Run experiments.
 def run_all(model_type="gpt2", attractor=None, intervention_method = "natural", device="cuda", 
             out_dir=".", random_weights=False, seed=5, examples=100, language="en"):
     print("Model:", model_type)
@@ -360,8 +358,9 @@ def run_all(model_type="gpt2", attractor=None, intervention_method = "natural", 
         interventions = construct_interventions_bi(attractor, tokenizer, device, seed, examples,
                 shuffle=attractor.endswith("shuffle"), intervention_method = intervention_method)
     else:
+        short = language.endswith("_short")
         interventions = construct_interventions(tokenizer, device, attractor, seed,
-                examples, intervention_method)
+                examples, intervention_method, short=short)
     # Consider all the intervention types
     for itype in intervention_types:
         print("\t Running with intervention: {}".format(
@@ -381,7 +380,7 @@ def run_all(model_type="gpt2", attractor=None, intervention_method = "natural", 
         # Finally, save each exp separately
         df.to_csv(os.path.join(base_path, fname+".csv"))
 
-
+# Argument handling.
 if __name__ == "__main__":
     if not (len(sys.argv) >= 4):
         print("USAGE: python ", sys.argv[0], 
